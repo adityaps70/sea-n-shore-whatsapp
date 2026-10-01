@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
+import { AdminNav } from "@/components/admin-nav";
 
 async function getStats() {
   if (!hasSupabaseServerEnv()) {
@@ -34,16 +35,17 @@ export default async function Home() {
           <div className="brand">Sea N Shore · WhatsApp</div>
           <div className="muted">Marketing operations console</div>
         </div>
-        <div className="stack">
-          <span className="badge">{supabaseReady ? "Supabase connected" : "Supabase pending"}</span>
-          <span className="badge">{metaReady ? "Meta connected" : "Meta pending"}</span>
-        </div>
+        <AdminNav />
       </div>
 
       <section className="hero">
         <span className="badge">Standalone platform</span>
         <h1>Reach the right maritime audience—without losing control.</h1>
         <p>Contacts, consent, campaigns, templates and delivery status in one place.</p>
+        <div className="stack" style={{ marginTop: 16 }}>
+          <span className="badge">{supabaseReady ? "Supabase connected" : "Supabase pending"}</span>
+          <span className="badge">{metaReady ? "Meta connected" : "Meta pending"}</span>
+        </div>
       </section>
 
       <section className="grid section">
@@ -56,18 +58,18 @@ export default async function Home() {
       <section className="card section">
         <h2>Platform controls</h2>
         <div className="stack">
+          <span className="badge">Admin login protected</span>
           <span className="badge">Consent required</span>
           <span className="badge">Opt-out enforced</span>
           <span className="badge">Template only</span>
           <span className="badge">Webhook tracked</span>
-          <span className="badge">Audit logged</span>
         </div>
       </section>
 
       <section className="card section">
         <h2>Recent campaigns</h2>
         {stats.recent.length === 0 ? (
-          <p className="muted">No campaigns yet. Database provisioning and Meta credentials are the next infrastructure steps.</p>
+          <p className="muted">No campaigns yet. Import contacts, then connect Meta WhatsApp Cloud API.</p>
         ) : (
           <table className="table">
             <thead><tr><th>Name</th><th>Status</th><th>Created</th></tr></thead>
