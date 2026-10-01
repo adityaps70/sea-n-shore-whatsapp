@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
+import { hasMetaWebhookConfigEnv, hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
 import { AdminNav } from "@/components/admin-nav";
 
 async function getStats() {
@@ -23,10 +23,16 @@ async function getStats() {
   };
 }
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ webhook?: string; code?: string }>;
+}) {
+  const params = await searchParams;
   const stats = await getStats();
   const supabaseReady = hasSupabaseServerEnv();
   const metaReady = hasWhatsAppEnv();
+  const webhookConfigReady = hasMetaWebhookConfigEnv();
 
   return (
     <main className="shell">
@@ -53,6 +59,30 @@ export default async function Home() {
         <div className="card"><div className="muted">Eligible to message</div><div className="metric">{stats.eligible}</div></div>
         <div className="card"><div className="muted">Campaigns</div><div className="metric">{stats.campaigns}</div></div>
         <div className="card"><div className="muted">Delivered / read</div><div className="metric">{stats.delivered}</div></div>
+      </section>
+
+      <section className="card section">
+        <h2>Meta webhook</h2>
+        <p className="muted">
+          If Meta's dashboard verification screen fails, configure the WhatsApp Business Account webhook through the Graph API instead.
+        </p>
+        {params.webhook === "success" ? (
+          <p style={{ color: "var(--good)", fontWeight: 700 }}>Webhook subscription configured through Meta Graph API.</p>
+        ) : null}
+        {params.webhook === "missing_env" ? (
+          <p style={{ color: "#9b1c1c", fontWeight: 700 }}>META_APP_ID or another Meta webhook environment variable is missing.</p>
+        ) : null}
+        {params.webhook === "error" ? (
+          <p style={{ color: "#9b1c1c", fontWeight: 700 }}>
+            Meta rejected the Graph API subscription{params.code ? ` (error ${params.code})` : ""}.
+          </p>
+        ) : null}
+        <form method="post" action="/api/meta/configure-webhook">
+          <button className="button" type="submit" disabled={!webhookConfigReady}>
+            Configure webhook via Meta Graph API
+          </button>
+        </form>
+        {!webhookConfigReady ? <p className="muted">Add META_APP_ID in Netlify and redeploy to enable this button.</p> : null}
       </section>
 
       <section className="card section">
