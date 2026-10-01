@@ -7,11 +7,45 @@ export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("hub.mode");
   const token = request.nextUrl.searchParams.get("hub.verify_token");
   const challenge = request.nextUrl.searchParams.get("hub.challenge");
+  const tokenMatch = Boolean(token && token === env.whatsappVerifyToken);
+  const valid = mode === "subscribe" && tokenMatch && Boolean(challenge);
 
-  if (mode === "subscribe" && token && token === env.whatsappVerifyToken && challenge) {
-    return new NextResponse(challenge, { status: 200 });
+  if (hasSupabaseServerEnv()) {
+    try {
+      const supabase = createAdminClient();
+      await supabase.from("webhook_events").insert({
+        provider: "meta_whatsapp",
+        event_type: "verification_attempt",
+        payload: {
+          mode,
+          token_match: tokenMatch,
+          challenge_present: Boolean(challenge),
+          valid,
+          user_agent: request.headers.get("user-agent"),
+        },
+      });
+    } catch {
+      // Diagnostics must never block the verification handshake.
+    }
   }
-  return NextResponse.json({ ok: false }, { status: 403 });
+
+  if (valid && challenge) {
+    return new NextResponse(challenge, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
+  }
+
+  return new NextResponse("Forbidden", {
+    status: 403,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store, max-age=0",
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
