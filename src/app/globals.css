@@ -301,3 +301,13 @@ button:disabled{opacity:.42;cursor:not-allowed;transform:none!important}
 @media(max-width:1200px){.quickgrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.quickgrid{grid-template-columns:1fr 1fr}.sectionhead{align-items:flex-start}}
 @media(max-width:520px){.quickgrid{grid-template-columns:1fr}}
+
+.guestpage{max-width:920px;margin:0 auto!important;padding:64px 24px!important}
+.guesthero{padding:34px 0 26px}
+.guesthero h1{font-family:Georgia,serif;font-size:46px;line-height:1.04;font-weight:500;letter-spacing:-.035em;margin:12px 0}
+.guesthero p{color:#73807a;font-size:13px;max-width:600px;line-height:1.6}
+.guestform{background:rgba(255,255,255,.96);border:1px solid rgba(23,53,46,.08);border-radius:22px;padding:26px;box-shadow:0 22px 60px rgba(29,47,40,.08)}
+.guestsubmit{margin-top:18px;width:100%;padding:13px 16px}
+.guestmessage{margin-top:16px;padding:12px 14px;border-radius:12px;background:#e9f2ed;color:#225443;font-size:11px;font-weight:700}
+.guestform>small{display:block;margin-top:14px;color:#89938e;line-height:1.5}
+@media(max-width:620px){.guestpage{padding:32px 16px!important}.guesthero h1{font-size:36px}}
