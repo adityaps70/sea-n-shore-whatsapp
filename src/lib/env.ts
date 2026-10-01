@@ -25,9 +25,10 @@ export function hasWhatsAppEnv() {
 
 export function hasMetaWebhookConfigEnv() {
   return Boolean(
-    env.metaAppId &&
-    env.whatsappAppSecret &&
+    env.whatsappAccessToken &&
+    env.whatsappBusinessAccountId &&
     env.whatsappVerifyToken &&
+    env.whatsappAppSecret &&
     env.whatsappGraphApiVersion
   );
 }
