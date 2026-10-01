@@ -64,25 +64,25 @@ export default async function Home({
       <section className="card section">
         <h2>Meta webhook</h2>
         <p className="muted">
-          If Meta's dashboard verification screen fails, configure the WhatsApp Business Account webhook through the Graph API instead.
+          Configure this WhatsApp Business Account directly through Meta's WABA subscription endpoint.
         </p>
         {params.webhook === "success" ? (
-          <p style={{ color: "var(--good)", fontWeight: 700 }}>Webhook subscription configured through Meta Graph API.</p>
+          <p style={{ color: "var(--good)", fontWeight: 700 }}>WhatsApp Business Account webhook subscription configured through Meta Graph API.</p>
         ) : null}
         {params.webhook === "missing_env" ? (
           <p style={{ color: "#9b1c1c", fontWeight: 700 }}>META_APP_ID or another Meta webhook environment variable is missing.</p>
         ) : null}
         {params.webhook === "error" ? (
           <p style={{ color: "#9b1c1c", fontWeight: 700 }}>
-            Meta rejected the Graph API subscription{params.code ? ` (error ${params.code})` : ""}.
+            Meta rejected the WABA webhook subscription{params.code ? ` (error ${params.code})` : ""}.
           </p>
         ) : null}
         <form method="post" action="/api/meta/configure-webhook">
           <button className="button" type="submit" disabled={!webhookConfigReady}>
-            Configure webhook via Meta Graph API
+            Configure WABA webhook via Meta Graph API
           </button>
         </form>
-        {!webhookConfigReady ? <p className="muted">Add META_APP_ID in Netlify and redeploy to enable this button.</p> : null}
+        {!webhookConfigReady ? <p className="muted">One or more required Meta/WhatsApp environment variables are missing in Netlify.</p> : null}
       </section>
 
       <section className="card section">
