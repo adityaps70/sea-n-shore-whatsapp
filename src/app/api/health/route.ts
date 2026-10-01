@@ -7,7 +7,8 @@ export async function GET() {
     service: "sea-n-shore-whatsapp",
     supabaseConfigured: hasSupabaseServerEnv(),
     metaConfigured: hasWhatsAppEnv(),
-    webhookConfigured: Boolean(env.whatsappVerifyToken && env.whatsappAppSecret),
+    verifyTokenConfigured: Boolean(env.whatsappVerifyToken),
+    appSecretConfigured: Boolean(env.whatsappAppSecret),
     timestamp: new Date().toISOString(),
   });
 }
