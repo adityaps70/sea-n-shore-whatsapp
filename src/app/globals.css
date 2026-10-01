@@ -276,3 +276,8 @@ td small{display:block;color:#909995;margin-top:4px}.mono{font-family:"SFMono-Re
   .ghost{display:none}.primary{padding:10px 12px;font-size:10px}.avatar{width:36px;height:36px}.formgrid{grid-template-columns:1fr}.span2{grid-column:span 1}
 }
 @media print{.sidebar,.topbar,.primary,.ghost,.mini{display:none!important}main{margin:0;padding:0}.content{padding:0}.card,.tablecard,.metric{break-inside:avoid}body{background:white}}
+
+.sectionhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.rowactions{display:flex;gap:6px;flex-wrap:wrap}
+.loadingveil{position:fixed;inset:0;background:rgba(244,246,243,.72);backdrop-filter:blur(8px);z-index:50;display:grid;place-items:center;align-content:center;gap:12px;color:#173f35;font-size:11px;font-weight:800;letter-spacing:.04em}
+.loader{width:34px;height:34px;border-radius:50%;border:3px solid rgba(23,63,53,.13);border-top-color:#173f35;animation:spin .8s linear infinite}
