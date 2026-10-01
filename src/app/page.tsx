@@ -7,6 +7,7 @@ type Room = { id:number; number:string; floor:number; type:string; rate:number; 
 type Booking = { id:string; guest:string; phone:string; room:string; checkIn:string; checkOut:string; source:string; status:string; amount:number; paid:number };
 type Expense = { id:string; date:string; category:string; vendor:string; amount:number; mode:string; note:string };
 type Task = { id:string; room:string; priority:string; assignee:string; status:string };
+type MaintenanceTicket = { id:string; room:string; category:string; priority:string; description:string; assignee:string; status:string; blocksRoom:boolean };
 
 const seedRooms: Room[] = [
   {id:101,number:"101",floor:1,type:"Deluxe",rate:3200,status:"Occupied",guest:"Ananya Sharma"},
@@ -54,26 +55,44 @@ export default function Home() {
   const [bookings,setBookings] = useState<Booking[]>(seedBookings);
   const [expenses,setExpenses] = useState<Expense[]>(seedExpenses);
   const [tasks,setTasks] = useState<Task[]>(seedTasks);
+  const [maintenance,setMaintenance] = useState<MaintenanceTicket[]>([]);
   const [search,setSearch] = useState("");
+  const [loading,setLoading] = useState(true);
   const [modal,setModal] = useState<"booking"|"expense"|null>(null);
   const [toast,setToast] = useState("");
 
-  useEffect(()=> {
-    const saved = localStorage.getItem("la-shimti-pms");
-    if(saved){
-      try {
-        const d=JSON.parse(saved);
-        if(d.rooms) setRooms(d.rooms);
-        if(d.bookings) setBookings(d.bookings);
-        if(d.expenses) setExpenses(d.expenses);
-        if(d.tasks) setTasks(d.tasks);
-      } catch {}
+  async function refreshData(silent=false) {
+    if(!silent) setLoading(true);
+    try {
+      const response = await fetch("/api/pms", { cache: "no-store" });
+      const data = await response.json();
+      if(!response.ok || !data.ok) throw new Error(data.error || "Unable to load hotel data");
+      setRooms(data.rooms || []);
+      setBookings(data.bookings || []);
+      setExpenses(data.expenses || []);
+      setTasks(data.tasks || []);
+      setMaintenance(data.maintenance || []);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Unable to load hotel data");
+    } finally {
+      if(!silent) setLoading(false);
     }
-  },[]);
+  }
 
-  useEffect(()=> {
-    localStorage.setItem("la-shimti-pms", JSON.stringify({rooms,bookings,expenses,tasks}));
-  },[rooms,bookings,expenses,tasks]);
+  async function pmsAction(payload: Record<string, unknown>, success?: string) {
+    const response = await fetch("/api/pms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if(!response.ok || !data.ok) throw new Error(data.error || "Operation failed");
+    await refreshData(true);
+    if(success) notify(success);
+    return data.result;
+  }
+
+  useEffect(()=> { refreshData(); },[]);
 
   const metrics = useMemo(()=>{
     const occupied=rooms.filter(r=>r.status==="Occupied").length;
@@ -86,34 +105,52 @@ export default function Home() {
 
   function notify(msg:string){ setToast(msg); setTimeout(()=>setToast(""),2200); }
 
-  function changeRoomStatus(number:string,status:RoomStatus){
-    setRooms(v=>v.map(r=>r.number===number?{...r,status,guest:status==="Available"||status==="Dirty"||status==="Cleaning"?undefined:r.guest}:r));
-    notify(`Room ${number} marked ${status}`);
+  async function changeRoomStatus(number:string,status:RoomStatus){
+    try {
+      await pmsAction({action:"setRoomStatus",room:number,status}, `Room ${number} marked ${status}`);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Unable to update room");
+    }
   }
 
-  function submitBooking(e:FormEvent<HTMLFormElement>){
+  async function submitBooking(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     const f=new FormData(e.currentTarget);
-    const room=String(f.get("room"));
-    const target=rooms.find(r=>r.number===room);
-    if(!target || target.status==="Occupied" || target.status==="Out of Order"){ notify("Choose an available room"); return; }
-    const amount=Number(f.get("amount")||target.rate);
-    const b:Booking={
-      id:`LSH-${String(Date.now()).slice(-5)}`,
-      guest:String(f.get("guest")), phone:String(f.get("phone")), room,
-      checkIn:String(f.get("checkIn")),checkOut:String(f.get("checkOut")),
-      source:String(f.get("source")),status:"Confirmed",amount,paid:Number(f.get("paid")||0)
-    };
-    setBookings(v=>[b,...v]);
-    setRooms(v=>v.map(r=>r.number===room?{...r,status:"Reserved"}:r));
-    setModal(null); notify("Reservation created");
+    try {
+      await pmsAction({
+        action:"createReservation",
+        guest:String(f.get("guest")),
+        phone:String(f.get("phone")),
+        room:String(f.get("room")),
+        checkIn:String(f.get("checkIn")),
+        checkOut:String(f.get("checkOut")),
+        source:String(f.get("source")),
+        nightlyRate:Number(f.get("amount")||0),
+        advance:Number(f.get("paid")||0),
+      }, "Reservation created");
+      setModal(null);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Unable to create reservation");
+    }
   }
 
-  function submitExpense(e:FormEvent<HTMLFormElement>){
+  async function submitExpense(e:FormEvent<HTMLFormElement>){
     e.preventDefault();
     const f=new FormData(e.currentTarget);
-    setExpenses(v=>[{id:`EXP-${String(Date.now()).slice(-4)}`,date:String(f.get("date")),category:String(f.get("category")),vendor:String(f.get("vendor")),amount:Number(f.get("amount")),mode:String(f.get("mode")),note:String(f.get("note"))},...v]);
-    setModal(null); notify("Expense recorded");
+    try {
+      await pmsAction({
+        action:"recordExpense",
+        date:String(f.get("date")),
+        category:String(f.get("category")),
+        vendor:String(f.get("vendor")),
+        amount:Number(f.get("amount")),
+        mode:String(f.get("mode")),
+        note:String(f.get("note")),
+      }, "Expense recorded");
+      setModal(null);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Unable to record expense");
+    }
   }
 
   const filteredBookings=bookings.filter(b=>[b.guest,b.phone,b.room,b.id].join(" ").toLowerCase().includes(search.toLowerCase()));
@@ -138,15 +175,15 @@ export default function Home() {
 
       {active==="Dashboard" && <Dashboard metrics={metrics} rooms={rooms} bookings={bookings} tasks={tasks} setActive={setActive} />}
       {active==="Rooms" && <Rooms rooms={rooms} changeRoomStatus={changeRoomStatus}/>}
-      {active==="Reservations" && <Reservations bookings={filteredBookings} setBookings={setBookings} rooms={rooms} setRooms={setRooms} notify={notify}/>}
+      {active==="Reservations" && <Reservations bookings={filteredBookings} pmsAction={pmsAction} notify={notify}/>}
       {active==="Guests" && <Guests bookings={bookings}/>}
-      {active==="Housekeeping" && <Housekeeping tasks={tasks} setTasks={setTasks} rooms={rooms} setRooms={setRooms} notify={notify}/>}
-      {active==="Maintenance" && <Maintenance rooms={rooms} changeRoomStatus={changeRoomStatus}/>}
-      {active==="Billing" && <Billing bookings={bookings}/>}
+      {active==="Housekeeping" && <Housekeeping tasks={tasks} pmsAction={pmsAction} notify={notify}/>}
+      {active==="Maintenance" && <Maintenance rooms={rooms} maintenance={maintenance} pmsAction={pmsAction} notify={notify}/>}
+      {active==="Billing" && <Billing bookings={bookings} pmsAction={pmsAction} notify={notify}/>}
       {active==="Expenses" && <Expenses expenses={expenses}/>}
       {active==="Reports" && <Reports bookings={bookings} expenses={expenses} rooms={rooms}/>}
-      {active==="Night Audit" && <NightAudit bookings={bookings} rooms={rooms}/>}
-      {active==="Staff" && <Staff/>}
+      {active==="Night Audit" && <NightAudit bookings={bookings} rooms={rooms} pmsAction={pmsAction} notify={notify}/>}
+      {active==="Staff" && <Staff pmsAction={pmsAction} notify={notify}/>} 
       {active==="Settings" && <Settings/>}
     </main>
 
@@ -174,6 +211,7 @@ export default function Home() {
         <div className="span2 modalactions"><button type="button" className="ghost" onClick={()=>setModal(null)}>Cancel</button><button className="primary">Record expense</button></div>
       </form>
     </Modal>}
+    {loading && <div className="loadingveil"><div className="loader"/><span>Syncing La Shimti…</span></div>}
     {toast && <div className="toast">✓ {toast}</div>}
   </div>
 }
@@ -238,14 +276,19 @@ function Rooms({rooms,changeRoomStatus}:{rooms:Room[];changeRoomStatus:(n:string
   </section>
 }
 
-function Reservations({bookings,setBookings,rooms,setRooms,notify}:{bookings:Booking[];setBookings:any;rooms:Room[];setRooms:any;notify:(x:string)=>void}) {
-  function action(b:Booking,type:"checkin"|"checkout"){
-    if(type==="checkin"){
-      setBookings((v:Booking[])=>v.map(x=>x.id===b.id?{...x,status:"Checked-in"}:x));
-      setRooms((v:Room[])=>v.map(r=>r.number===b.room?{...r,status:"Occupied",guest:b.guest}:r)); notify("Guest checked in");
-    } else {
-      setBookings((v:Booking[])=>v.map(x=>x.id===b.id?{...x,status:"Checked-out"}:x));
-      setRooms((v:Room[])=>v.map(r=>r.number===b.room?{...r,status:"Dirty",guest:undefined}:r)); notify("Checked out · room marked Dirty");
+function Reservations({bookings,pmsAction,notify}:{bookings:Booking[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}) {
+  async function action(b:Booking,type:"checkin"|"checkout"){
+    try {
+      if(type==="checkin") {
+        await pmsAction({action:"checkIn",bookingNo:b.id},"Guest checked in");
+      } else {
+        const due=Math.max(0,b.amount-b.paid);
+        const markReceivable=due>0 ? window.confirm(`This folio has ${money(due)} outstanding. OK = mark as receivable and check out. Cancel = settle payment first.`) : false;
+        if(due>0 && !markReceivable) return;
+        await pmsAction({action:"checkOut",bookingNo:b.id,markReceivable},"Checked out · room marked Dirty");
+      }
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Operation failed");
     }
   }
   return <section className="content"><SectionHead title="Reservations" text="Manage arrivals, in-house stays, balances and departures."/>
@@ -258,25 +301,55 @@ function Guests({bookings}:{bookings:Booking[]}) {
   return <section className="content"><SectionHead title="Guest directory" text="Searchable stay history for repeat guests and preferences."/><div className="cards3">{unique.map((g,i)=><div className="profilecard" key={g.phone}><div className="guestavatar">{g.guest.split(" ").map(x=>x[0]).join("").slice(0,2)}</div><h3>{g.guest}</h3><p>{g.phone}</p><div className="profilemeta"><span>Last room <b>{g.room}</b></span><span>Total spend <b>{money(g.amount)}</b></span></div>{i===0&&<span className="vip">Repeat guest</span>}</div>)}</div></section>
 }
 
-function Housekeeping({tasks,setTasks,rooms,setRooms,notify}:{tasks:Task[];setTasks:any;rooms:Room[];setRooms:any;notify:(x:string)=>void}) {
-  function advance(t:Task){
-    const next=t.status==="Dirty"||t.status==="Pending"?"Cleaning":t.status==="Cleaning"?"Done":"Done";
-    setTasks((v:Task[])=>v.map(x=>x.id===t.id?{...x,status:next}:x));
-    if(next==="Done")setRooms((v:Room[])=>v.map(r=>r.number===t.room?{...r,status:"Available"}:r));
-    notify(next==="Done"?`Room ${t.room} ready for sale`:`Room ${t.room} cleaning started`);
+function Housekeeping({tasks,pmsAction,notify}:{tasks:Task[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}) {
+  async function advance(t:Task){
+    try {
+      await pmsAction({action:"advanceHousekeeping",taskId:t.id},t.status==="Cleaning"?`Room ${t.room} ready for sale`:`Room ${t.room} cleaning started`);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : "Unable to update housekeeping");
+    }
   }
   return <section className="content"><SectionHead title="Housekeeping" text="Mobile-friendly task board for room turnaround."/><div className="kanban">{["Pending","Dirty","Cleaning","Done"].map(s=><div className="lane" key={s}><div className="lanehead">{s}<b>{tasks.filter(t=>t.status===s).length}</b></div>{tasks.filter(t=>t.status===s).map(t=><div className="hkcard" key={t.id}><span className="priority">{t.priority}</span><h2>Room {t.room}</h2><p>Assigned to {t.assignee}</p>{s!=="Done"&&<button className="mini" onClick={()=>advance(t)}>{s==="Cleaning"?"Mark clean":"Start cleaning"}</button>}</div>)}</div>)}</div></section>
 }
 
-function Maintenance({rooms,changeRoomStatus}:{rooms:Room[];changeRoomStatus:(n:string,s:RoomStatus)=>void}) {
-  const bad=rooms.filter(r=>r.status==="Out of Order");
-  return <section className="content"><SectionHead title="Maintenance" text="Track room-impacting issues and block inventory safely."/><div className="dashgrid"><Card title="Open tickets">{bad.length?bad.map(r=><div className="ticket" key={r.number}><div><b>Room {r.number} · Electrical inspection</b><span>High priority · opened today</span></div><button className="mini" onClick={()=>changeRoomStatus(r.number,"Dirty")}>Resolve</button></div>):<Empty text="No open maintenance tickets"/>}</Card><Card title="Preventive checklist"><Checklist items={["Water pressure & hot water","Electrical points & lighting","Wi-Fi and TV","Door lock & safety","Bathroom fittings"]}/></Card></div></section>
+function Maintenance({rooms,maintenance,pmsAction,notify}:{rooms:Room[];maintenance:MaintenanceTicket[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}) {
+  async function createTicket(){
+    const room=window.prompt("Room number");
+    if(!room) return;
+    const description=window.prompt("Describe the maintenance issue");
+    if(!description) return;
+    try {
+      await pmsAction({action:"createMaintenance",room,category:"General",priority:"High",description,blocksRoom:true},"Maintenance ticket created · room blocked");
+    } catch(error) { notify(error instanceof Error?error.message:"Unable to create ticket"); }
+  }
+  async function resolve(id:string){
+    try { await pmsAction({action:"resolveMaintenance",ticketId:id},"Maintenance resolved · room moved to Dirty"); }
+    catch(error){ notify(error instanceof Error?error.message:"Unable to resolve ticket"); }
+  }
+  return <section className="content"><div className="sectionhead"><div><h2>Maintenance</h2><p>Track room-impacting issues and block inventory safely.</p></div><button className="primary" onClick={createTicket}>+ Maintenance ticket</button></div><div className="dashgrid"><Card title="Open tickets">{maintenance.length?maintenance.map(m=><div className="ticket" key={m.id}><div><b>Room {m.room} · {m.category}</b><span>{m.priority} priority · {m.description}</span></div><button className="mini" onClick={()=>resolve(m.id)}>Resolve</button></div>):<Empty text="No open maintenance tickets"/>}</Card><Card title="Preventive checklist"><Checklist items={["Water pressure & hot water","Electrical points & lighting","Wi-Fi and TV","Door lock & safety","Bathroom fittings"]}/></Card></div></section>
 }
 
-function Billing({bookings}:{bookings:Booking[]}) {
+function Billing({bookings,pmsAction,notify}:{bookings:Booking[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}) {
+ async function pay(b:Booking){
+   const due=Math.max(0,b.amount-b.paid);
+   if(due<=0){notify("This folio is already settled");return;}
+   const raw=window.prompt(`Outstanding ${money(due)}. Enter payment amount`,String(due));
+   if(!raw) return;
+   const method=window.prompt("Payment method: Cash, UPI, Card, Bank Transfer, OTA, Complimentary, Other","UPI")||"UPI";
+   try{await pmsAction({action:"addPayment",bookingNo:b.id,amount:Number(raw),method},"Payment posted");}
+   catch(error){notify(error instanceof Error?error.message:"Unable to post payment");}
+ }
+ async function charge(b:Booking){
+   const description=window.prompt("Charge description (e.g. Laundry, Transport, Food)");
+   if(!description) return;
+   const amount=window.prompt("Unit price");
+   if(!amount) return;
+   try{await pmsAction({action:"addCharge",bookingNo:b.id,category:"Miscellaneous",description,quantity:1,unitPrice:Number(amount),taxRate:0,discount:0},"Charge added to folio");}
+   catch(error){notify(error instanceof Error?error.message:"Unable to add charge");}
+ }
  return <section className="content"><SectionHead title="Guest folios & billing" text="Room charges, taxes, payments and receivables in one place."/>
  <div className="metrics"><Metric label="Gross folios" value={money(bookings.reduce((s,b)=>s+b.amount,0))} sub="Current sample period"/><Metric label="Collected" value={money(bookings.reduce((s,b)=>s+b.paid,0))} sub="Cash / UPI / OTA"/><Metric label="Receivable" value={money(bookings.reduce((s,b)=>s+(b.amount-b.paid),0))} sub="Open guest balances"/><Metric label="GST-ready" value="Invoice" sub="CGST / SGST configurable"/></div>
- <div className="tablecard"><Table headers={["Invoice","Guest","Room","Gross","Paid","Due","Status"]} rows={bookings.map((b,i)=>[`INV-26-${101+i}`,b.guest,b.room,money(b.amount),money(b.paid),money(b.amount-b.paid),b.amount===b.paid?"Paid":"Open"])}/></div></section>
+ <div className="tablecard"><table><thead><tr>{["Invoice","Guest","Room","Gross","Paid","Due","Status","Actions"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{bookings.map((b,i)=><tr key={b.id}><td>INV-26-{101+i}</td><td>{b.guest}</td><td>{b.room}</td><td>{money(b.amount)}</td><td>{money(b.paid)}</td><td>{money(b.amount-b.paid)}</td><td>{b.amount<=b.paid?"Paid":"Open"}</td><td><div className="rowactions"><button className="mini" onClick={()=>pay(b)}>Payment</button><button className="mini" onClick={()=>charge(b)}>+ Charge</button></div></td></tr>)}</tbody></table></div></section>
 }
 
 function Expenses({expenses}:{expenses:Expense[]}) {
@@ -289,12 +362,25 @@ function Reports({bookings,expenses,rooms}:{bookings:Booking[];expenses:Expense[
  {["Daily Manager Report","Occupancy & ADR","Revenue & Collections","Outstanding Receivables","Booking Source Mix","GST / Tax Summary","Expense Analysis","Night Audit History","Room Productivity"].map((r,i)=><div className="reportcard" key={r}><span>{String(i+1).padStart(2,"0")}</span><h3>{r}</h3><p>{i===0?`Gross ${money(gross)} · Net before costs ${money(gross-spend)}`:i===1?`${rooms.filter(x=>x.status==="Occupied").length} occupied of ${rooms.length} rooms`:"Date filters · Print · CSV export"}</p><button className="mini" onClick={()=>window.print()}>Open / Print</button></div>)}</div></section>
 }
 
-function NightAudit({bookings,rooms}:{bookings:Booking[];rooms:Room[]}) {
+function NightAudit({bookings,rooms,pmsAction,notify}:{bookings:Booking[];rooms:Room[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}) {
  const open=bookings.filter(b=>b.amount>b.paid&&b.status!=="Checked-out");
- return <section className="content"><SectionHead title="Night Audit" text="Close the business day only after exceptions are reviewed."/><div className="auditbox"><div className="audithead"><div><span className="pill">BUSINESS DAY</span><h2>01 October 2026</h2></div><button className="primary" onClick={()=>alert("Night audit review complete. In production this will lock the business day and create an audit snapshot.")}>Close business day</button></div><Checklist items={[rooms.filter(r=>r.status==="Occupied").length+" occupied rooms reconciled",open.length+" open folios require review",rooms.filter(r=>r.status==="Dirty").length+" dirty rooms carried to housekeeping","OTA & direct collections reviewed","Cash drawer counted and handed over"]}/></div></section>
+ async function closeDay(){
+   if(!window.confirm("Close business day 01 October 2026? This creates an immutable audit snapshot.")) return;
+   try{await pmsAction({action:"closeNightAudit",businessDate:"2026-10-01"},"Business day closed and audit snapshot saved");}
+   catch(error){notify(error instanceof Error?error.message:"Unable to close business day");}
+ }
+ return <section className="content"><SectionHead title="Night Audit" text="Close the business day only after exceptions are reviewed."/><div className="auditbox"><div className="audithead"><div><span className="pill">BUSINESS DAY</span><h2>01 October 2026</h2></div><button className="primary" onClick={closeDay}>Close business day</button></div><Checklist items={[rooms.filter(r=>r.status==="Occupied").length+" occupied rooms reconciled",open.length+" open folios require review",rooms.filter(r=>r.status==="Dirty").length+" dirty rooms carried to housekeeping","OTA & direct collections reviewed","Cash drawer counted and handed over"]}/></div></section>
 }
 
-function Staff(){return <section className="content"><SectionHead title="Staff & shifts" text="Operational roles, contact details and handover notes."/><div className="cards3">{[["Front Desk","Aisha Kharshiing","Evening · On duty"],["Housekeeping","Mary Nongrum","Floor 1 & 3"],["Housekeeping","Bina Marbaniang","Floor 2"],["Manager","R. Lyngdoh","Property manager"],["Maintenance","Daniel K.","On call"]].map(s=><div className="profilecard" key={s[1]}><div className="guestavatar">{s[1].split(" ").map(x=>x[0]).join("").slice(0,2)}</div><h3>{s[1]}</h3><p>{s[0]}</p><span className="vip">{s[2]}</span></div>)}</div><div className="notebox"><b>Shift handover</b><textarea defaultValue="Room 304 remains out of order. Follow up electrical inspection. Guest in 302 has late checkout approved until 13:00. Room 103 must be ready before 11:30 arrival."/></div></section>}
+function Staff({pmsAction,notify}:{pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
+ const [handover,setHandover]=useState("Room 304 remains out of order. Follow up electrical inspection. Guest in 302 has late checkout approved until 13:00. Room 103 must be ready before 11:30 arrival.");
+ async function save(){
+   if(!handover.trim()){notify("Handover note cannot be empty");return;}
+   try{await pmsAction({action:"saveHandover",shiftName:"Evening",author:"Front Desk",note:handover},"Shift handover saved");}
+   catch(error){notify(error instanceof Error?error.message:"Unable to save handover");}
+ }
+ return <section className="content"><SectionHead title="Staff & shifts" text="Operational roles, contact details and handover notes."/><div className="cards3">{[["Front Desk","Aisha Kharshiing","Evening · On duty"],["Housekeeping","Mary Nongrum","Floor 1 & 3"],["Housekeeping","Bina Marbaniang","Floor 2"],["Manager","R. Lyngdoh","Property manager"],["Maintenance","Daniel K.","On call"]].map(s=><div className="profilecard" key={s[1]}><div className="guestavatar">{s[1].split(" ").map(x=>x[0]).join("").slice(0,2)}</div><h3>{s[1]}</h3><p>{s[0]}</p><span className="vip">{s[2]}</span></div>)}</div><div className="notebox"><div className="cardhead"><b>Shift handover</b><button onClick={save}>Save →</button></div><textarea value={handover} onChange={e=>setHandover(e.target.value)}/></div></section>
+}
 
 function Settings(){return <section className="content"><SectionHead title="Hotel settings" text="Core property, billing and operational configuration."/><div className="settingsgrid"><Card title="Property profile"><SettingsRow k="Property" v="La Shimti Hotel"/><SettingsRow k="City" v="Shillong, Meghalaya"/><SettingsRow k="Currency" v="INR (₹)"/><SettingsRow k="Check-in" v="12:00 PM"/><SettingsRow k="Check-out" v="11:00 AM"/></Card><Card title="Billing"><SettingsRow k="Invoice prefix" v="LSH"/><SettingsRow k="GST" v="Configurable CGST + SGST"/><SettingsRow k="SAC" v="996311"/><SettingsRow k="Payment methods" v="Cash · UPI · Card · Bank · OTA"/></Card><Card title="Integrations"><SettingsRow k="WhatsApp" v="Not connected"/><SettingsRow k="Email" v="Not connected"/><SettingsRow k="Payment gateway" v="Not connected"/><SettingsRow k="OTA channel manager" v="Phase 2"/></Card><Card title="Access roles"><SettingsRow k="Owner / Admin" v="Full access"/><SettingsRow k="Front Desk" v="Bookings · Rooms · Billing"/><SettingsRow k="Housekeeping" v="Room tasks only"/><SettingsRow k="Accounts" v="Billing · Expenses · Reports"/></Card></div></section>}
 
