@@ -167,6 +167,7 @@ export default function Home() {
         <div className="top-title"><div className="eyebrow">LA SHIMTI HOTEL · SHILLONG</div><h1>{active}</h1></div>
         <div className="topactions">
           <div className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Guest, room, booking…"/></div>
+          <button className="ghost" onClick={()=>window.location.href="/operations"}>Operations</button>
           <button className="ghost" onClick={()=>setModal("expense")}>+ Expense</button>
           <button className="primary" onClick={()=>setModal("booking")}>+ New booking</button>
           <div className="avatar">FD</div>
