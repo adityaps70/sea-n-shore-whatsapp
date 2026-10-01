@@ -5,7 +5,7 @@ Standalone WhatsApp marketing operations platform for Sea N Shore.
 ## Stack
 
 - Next.js App Router
-- Vercel
+- Netlify
 - Supabase Postgres + Auth
 - Meta WhatsApp Business Platform (Cloud API)
 
@@ -30,16 +30,18 @@ Copy `.env.example` to `.env.local`. Never commit Meta or Supabase secret keys.
 
 ## Database
 
-Apply `supabase/migrations/0001_initial.sql` to the dedicated Supabase project.
+The dedicated Supabase project is provisioned. Migrations live under `supabase/migrations/`.
 
 ## Meta webhook
 
 Configure Meta's webhook callback to:
 
-`https://YOUR_DOMAIN/api/meta/webhook`
+`https://YOUR_NETLIFY_DOMAIN/api/meta/webhook`
 
 Use the same secret value in Meta and `WHATSAPP_VERIFY_TOKEN`.
 
-## Status
+## Hosting
 
-Initial scaffold. Database and Vercel production wiring are intentionally separate from the main Sea N Shore website.
+Netlify is the deployment target. Modern Next.js features are handled through Netlify's OpenNext adapter.
+
+Keep the dashboard private until application-level admin authentication is complete because it will contain customer contact and campaign data.
