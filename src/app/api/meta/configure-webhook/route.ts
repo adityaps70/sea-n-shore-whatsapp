@@ -13,22 +13,19 @@ export async function POST(request: NextRequest) {
   }
 
   const callbackUrl = new URL("/api/meta/webhook", request.url).toString();
-  const appAccessToken = `${env.metaAppId}|${env.whatsappAppSecret}`;
-
-  const body = new URLSearchParams({
-    object: "whatsapp_business_account",
-    callback_url: callbackUrl,
-    verify_token: env.whatsappVerifyToken!,
-    fields: "messages",
-    access_token: appAccessToken,
-  });
 
   const response = await fetch(
-    `https://graph.facebook.com/${env.whatsappGraphApiVersion}/${env.metaAppId}/subscriptions`,
+    `https://graph.facebook.com/${env.whatsappGraphApiVersion}/${env.whatsappBusinessAccountId}/subscribed_apps`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
+      headers: {
+        Authorization: `Bearer ${env.whatsappAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        override_callback_uri: callbackUrl,
+        verify_token: env.whatsappVerifyToken,
+      }),
       cache: "no-store",
     }
   );
@@ -38,19 +35,21 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
     await supabase.from("audit_log").insert({
-      action: "meta.webhook.configure",
-      entity_type: "meta_app",
-      entity_id: env.metaAppId,
+      action: "meta.webhook.configure_waba",
+      entity_type: "whatsapp_business_account",
+      entity_id: env.whatsappBusinessAccountId,
       details: {
         ok: response.ok,
         callback_url: callbackUrl,
         graph_version: env.whatsappGraphApiVersion,
         meta_error_code: payload?.error?.code ?? null,
         meta_error_subcode: payload?.error?.error_subcode ?? null,
+        meta_error_type: payload?.error?.type ?? null,
+        meta_error_message: payload?.error?.message ?? null,
       },
     });
   } catch {
-    // Audit logging must not hide the Meta response.
+    // Audit logging must not hide Meta's response.
   }
 
   if (!response.ok || payload?.success === false) {
