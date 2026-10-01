@@ -127,7 +127,7 @@ export default function Home() {
 
     <main>
       <header className="topbar">
-        <div><div className="eyebrow">LA SHIMTI HOTEL · SHILLONG</div><h1>{active}</h1></div>
+        <div className="top-title"><div className="eyebrow">LA SHIMTI HOTEL · SHILLONG</div><h1>{active}</h1></div>
         <div className="topactions">
           <div className="search"><span>⌕</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Guest, room, booking…"/></div>
           <button className="ghost" onClick={()=>setModal("expense")}>+ Expense</button>
@@ -182,7 +182,24 @@ function Dashboard({metrics,rooms,bookings,tasks,setActive}:{metrics:any;rooms:R
   const arrivals=bookings.filter(b=>b.checkIn===today && b.status!=="Checked-in");
   const departures=bookings.filter(b=>b.checkOut===today && b.status==="Checked-in");
   return <section className="content">
-    <div className="welcome"><div><span className="pill">THU · 01 OCT</span><h2>Good evening. Here’s the property pulse.</h2><p>One screen for front desk, rooms, collections and service readiness.</p></div><div className="business-day">Business day<br/><b>01 Oct 2026</b></div></div>
+    <div className="welcome hero-panel">
+      <div className="hero-copy">
+        <div className="hero-kicker"><span className="live-dot"/>LIVE PROPERTY VIEW <span className="hero-sep">•</span> THU · 01 OCT</div>
+        <h2>Good evening.<br/>Everything at La Shimti, at a glance.</h2>
+        <p>Front desk, rooms, housekeeping, collections and service readiness—kept beautifully in sync.</p>
+        <div className="hero-chips">
+          <span><b>${arrivals.length}</b> arrivals today</span>
+          <span><b>${departures.length}</b> departures</span>
+          <span><b>${rooms.filter(r=>r.status==="Dirty").length}</b> rooms to turn</span>
+        </div>
+      </div>
+      <div className="hero-side">
+        <div className="health-orbit">
+          <div className="health-core"><span>PROPERTY</span><b>ONLINE</b><small>All systems normal</small></div>
+        </div>
+        <div className="business-day">Business day<br/><b>01 Oct 2026</b></div>
+      </div>
+    </div>
     <div className="metrics">
       <Metric label="Occupancy" value={metrics.occupancy+"%"} sub={metrics.occupied+" occupied"} />
       <Metric label="Available rooms" value={String(metrics.available)} sub={metrics.dirty+" need attention"} />
@@ -214,7 +231,8 @@ function Dashboard({metrics,rooms,bookings,tasks,setActive}:{metrics:any;rooms:R
 function Rooms({rooms,changeRoomStatus}:{rooms:Room[];changeRoomStatus:(n:string,s:RoomStatus)=>void}) {
   return <section className="content"><SectionHead title="Live room board" text="Click a room status to move it through the operational cycle."/>
     {[1,2,3].map(f=><div key={f} className="floor"><h3>Floor {f}</h3><div className="roomgrid">{rooms.filter(r=>r.floor===f).map(r=><div key={r.number} className={"roomcard "+r.status.toLowerCase().replaceAll(" ","-")}>
-      <div className="roomtop"><b>{r.number}</b><span>{r.type}</span></div><div className="roomstatus">{r.status}</div><p>{r.guest||money(r.rate)+" / night"}</p>
+      <div className="roomtop"><div><span className="room-label">ROOM</span><b>{r.number}</b></div><span className="room-type">{r.type}</span></div>
+      <div className="roomstatus"><span className="statusdot"/>{r.status}</div><p>{r.guest||money(r.rate)+" / night"}</p>
       <select value={r.status} onChange={e=>changeRoomStatus(r.number,e.target.value as RoomStatus)}><option>Available</option><option>Reserved</option><option>Occupied</option><option>Dirty</option><option>Cleaning</option><option>Out of Order</option></select>
     </div>)}</div></div>)}
   </section>
@@ -280,8 +298,8 @@ function Staff(){return <section className="content"><SectionHead title="Staff &
 
 function Settings(){return <section className="content"><SectionHead title="Hotel settings" text="Core property, billing and operational configuration."/><div className="settingsgrid"><Card title="Property profile"><SettingsRow k="Property" v="La Shimti Hotel"/><SettingsRow k="City" v="Shillong, Meghalaya"/><SettingsRow k="Currency" v="INR (₹)"/><SettingsRow k="Check-in" v="12:00 PM"/><SettingsRow k="Check-out" v="11:00 AM"/></Card><Card title="Billing"><SettingsRow k="Invoice prefix" v="LSH"/><SettingsRow k="GST" v="Configurable CGST + SGST"/><SettingsRow k="SAC" v="996311"/><SettingsRow k="Payment methods" v="Cash · UPI · Card · Bank · OTA"/></Card><Card title="Integrations"><SettingsRow k="WhatsApp" v="Not connected"/><SettingsRow k="Email" v="Not connected"/><SettingsRow k="Payment gateway" v="Not connected"/><SettingsRow k="OTA channel manager" v="Phase 2"/></Card><Card title="Access roles"><SettingsRow k="Owner / Admin" v="Full access"/><SettingsRow k="Front Desk" v="Bookings · Rooms · Billing"/><SettingsRow k="Housekeeping" v="Room tasks only"/><SettingsRow k="Accounts" v="Billing · Expenses · Reports"/></Card></div></section>}
 
-function MiniRoomBoard({rooms}:{rooms:Room[]}){return <div className="miniboard">{rooms.map(r=><div key={r.number} title={r.status} className={"miniroom "+r.status.toLowerCase().replaceAll(" ","-")}><b>{r.number}</b><span>{r.status}</span></div>)}</div>}
-function Metric({label,value,sub,warn}:{label:string;value:string;sub:string;warn?:boolean}){return <div className={"metric "+(warn?"warn":"")}><span>{label}</span><strong>{value}</strong><small>{sub}</small></div>}
+function MiniRoomBoard({rooms}:{rooms:Room[]}){return <div className="miniboard">{rooms.map(r=><div key={r.number} title={r.status} className={"miniroom "+r.status.toLowerCase().replaceAll(" ","-")}><div className="miniroom-top"><b>{r.number}</b><i className="statusdot"/></div><span>{r.status}</span></div>)}</div>}
+function Metric({label,value,sub,warn}:{label:string;value:string;sub:string;warn?:boolean}){return <div className={"metric "+(warn?"warn":"")}><div className="metric-head"><span>{label}</span><i/></div><strong>{value}</strong><small>{sub}</small><div className="metric-line"/></div>}
 function Card({title,children,action,onAction}:{title:string;children:React.ReactNode;action?:string;onAction?:()=>void}){return <div className="card"><div className="cardhead"><h3>{title}</h3>{action&&<button onClick={onAction}>{action} →</button>}</div>{children}</div>}
 function Timeline({n,title,text}:{n:number;title:string;text:string}){return <div className="timelineitem"><div className="timenum">{n}</div><div><b>{title}</b><span>{text}</span></div></div>}
 function Table({headers,rows}:{headers:string[];rows:(string|number)[][]}){return <div className="tablewrap"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table></div>}
