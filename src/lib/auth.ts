@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { NextRequest } from "next/server";
 
 export const ADMIN_COOKIE = "sns_admin_session";
 const SESSION_HOURS = 8;
@@ -57,6 +58,10 @@ export function verifyAdminSession(token?: string | null) {
   } catch {
     return null;
   }
+}
+
+export function isAdminRequest(request: NextRequest) {
+  return Boolean(verifyAdminSession(request.cookies.get(ADMIN_COOKIE)?.value));
 }
 
 export function validateAdminCredentials(email: string, password: string) {
