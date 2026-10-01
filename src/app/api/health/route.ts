@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
+import { env, hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
 
 export async function GET() {
   return NextResponse.json({
@@ -7,6 +7,7 @@ export async function GET() {
     service: "sea-n-shore-whatsapp",
     supabaseConfigured: hasSupabaseServerEnv(),
     metaConfigured: hasWhatsAppEnv(),
+    webhookConfigured: Boolean(env.whatsappVerifyToken && env.whatsappAppSecret),
     timestamp: new Date().toISOString(),
   });
 }
