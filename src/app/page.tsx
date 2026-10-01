@@ -188,9 +188,9 @@ function Dashboard({metrics,rooms,bookings,tasks,setActive}:{metrics:any;rooms:R
         <h2>Good evening.<br/>Everything at La Shimti, at a glance.</h2>
         <p>Front desk, rooms, housekeeping, collections and service readiness—kept beautifully in sync.</p>
         <div className="hero-chips">
-          <span><b>${arrivals.length}</b> arrivals today</span>
-          <span><b>${departures.length}</b> departures</span>
-          <span><b>${rooms.filter(r=>r.status==="Dirty").length}</b> rooms to turn</span>
+          <span><b>{arrivals.length}</b> arrivals today</span>
+          <span><b>{departures.length}</b> departures</span>
+          <span><b>{rooms.filter(r=>r.status==="Dirty").length}</b> rooms to turn</span>
         </div>
       </div>
       <div className="hero-side">
