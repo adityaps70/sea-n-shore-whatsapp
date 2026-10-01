@@ -7,7 +7,7 @@ export const env = {
   whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID,
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN,
   whatsappAppSecret: process.env.WHATSAPP_APP_SECRET,
-  whatsappGraphApiVersion: process.env.WHATSAPP_GRAPH_API_VERSION || "v23.0",
+  whatsappGraphApiVersion: process.env.WHATSAPP_GRAPH_API_VERSION,
 };
 
 export function hasSupabaseServerEnv() {
@@ -15,5 +15,9 @@ export function hasSupabaseServerEnv() {
 }
 
 export function hasWhatsAppEnv() {
-  return Boolean(env.whatsappAccessToken && env.whatsappPhoneNumberId);
+  return Boolean(
+    env.whatsappAccessToken &&
+    env.whatsappPhoneNumberId &&
+    env.whatsappGraphApiVersion
+  );
 }
