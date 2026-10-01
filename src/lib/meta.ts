@@ -20,7 +20,11 @@ export function verifyMetaSignature(rawBody: string, signatureHeader: string | n
 }
 
 export async function sendTemplateMessage(input: TemplateSend) {
-  if (!env.whatsappAccessToken || !env.whatsappPhoneNumberId) {
+  if (
+    !env.whatsappAccessToken ||
+    !env.whatsappPhoneNumberId ||
+    !env.whatsappGraphApiVersion
+  ) {
     throw new Error("WhatsApp Cloud API environment is not configured.");
   }
 
