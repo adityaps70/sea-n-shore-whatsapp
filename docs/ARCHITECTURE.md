@@ -4,8 +4,8 @@
 
 This repository is completely separate from the main Sea N Shore website.
 
-### Vercel
-Runs the Next.js dashboard and API route handlers.
+### Netlify
+Runs the Next.js dashboard and API route handlers through Netlify's Next.js/OpenNext runtime.
 
 ### Supabase
 Stores:
@@ -32,6 +32,10 @@ A contact is sendable only when:
 ## Webhook flow
 
 Meta -> `/api/meta/webhook` -> signature verification -> raw event store -> message status update.
+
+## Deployment safety
+
+Until admin authentication is complete, keep the Netlify deployment private. Customer contact information must not be exposed through public dashboard routes.
 
 ## Next phases
 
