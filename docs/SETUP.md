@@ -1,19 +1,25 @@
 # Setup
 
 ## Supabase
-Create a dedicated Supabase project in the same preferred region as the rest of your stack, then apply:
 
-`supabase/migrations/0001_initial.sql`
+Dedicated project:
+- Name: Sea N Shore WhatsApp
+- Region: ap-south-1 (Mumbai)
 
-Required Vercel variables:
+Migrations live in:
+- `supabase/migrations/0001_initial.sql`
+- `supabase/migrations/0002_harden_rls_and_indexes.sql`
+
+Required Netlify environment variables:
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 - SUPABASE_SECRET_KEY
 
 ## Meta
+
 Create or select the Sea N Shore Meta app and WhatsApp Business Account.
 
-Required Vercel variables:
+Required Netlify environment variables:
 - WHATSAPP_ACCESS_TOKEN
 - WHATSAPP_PHONE_NUMBER_ID
 - WHATSAPP_BUSINESS_ACCOUNT_ID
@@ -27,5 +33,13 @@ Webhook callback:
 
 Subscribe the WhatsApp business account to message-related webhook events.
 
-## Vercel
-Import this GitHub repository as its own Vercel project. Do not attach the main Sea N Shore project's environment variables by default.
+## Netlify
+
+Import the GitHub repository:
+`adityaps70/sea-n-shore-whatsapp`
+
+Netlify should auto-detect Next.js. Repository defaults are also declared in `netlify.toml`.
+
+Before the first production publish, configure the required environment variables above.
+
+Keep the site private until admin authentication is complete.
