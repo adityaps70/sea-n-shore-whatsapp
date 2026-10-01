@@ -44,7 +44,7 @@ const seedTasks: Task[] = [
   {id:"HK-03",room:"302",priority:"Departure",assignee:"Mary",status:"Pending"},
 ];
 
-const nav = ["Dashboard","Rooms","Reservations","Guests","Housekeeping","Maintenance","Billing","POS","Inventory","Guest Services","Corporate","CRM","Expenses","Staff","Reports","Night Audit","Integrations","Settings"];
+const nav = ["Dashboard","Rooms","Reservations","Guests","Housekeeping","Maintenance","Billing","Expenses","Reports","Night Audit","Staff","Settings"];
 
 const money = (n:number) => new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n);
 const today = "2026-10-01";
@@ -56,18 +56,6 @@ export default function Home() {
   const [expenses,setExpenses] = useState<Expense[]>(seedExpenses);
   const [tasks,setTasks] = useState<Task[]>(seedTasks);
   const [maintenance,setMaintenance] = useState<MaintenanceTicket[]>([]);
-  const [integrations,setIntegrations] = useState<any[]>([]);
-  const [inventory,setInventory] = useState<any[]>([]);
-  const [posOrders,setPosOrders] = useState<any[]>([]);
-  const [laundryOrders,setLaundryOrders] = useState<any[]>([]);
-  const [transport,setTransport] = useState<any[]>([]);
-  const [corporates,setCorporates] = useState<any[]>([]);
-  const [staff,setStaff] = useState<any[]>([]);
-  const [attendance,setAttendance] = useState<any[]>([]);
-  const [doorAccess,setDoorAccess] = useState<any[]>([]);
-  const [precheckins,setPrecheckins] = useState<any[]>([]);
-  const [paymentLinks,setPaymentLinks] = useState<any[]>([]);
-  const [notifications,setNotifications] = useState<any[]>([]);
   const [search,setSearch] = useState("");
   const [loading,setLoading] = useState(true);
   const [modal,setModal] = useState<"booking"|"expense"|null>(null);
@@ -84,18 +72,6 @@ export default function Home() {
       setExpenses(data.expenses || []);
       setTasks(data.tasks || []);
       setMaintenance(data.maintenance || []);
-      setIntegrations(data.integrations || []);
-      setInventory(data.inventory || []);
-      setPosOrders(data.posOrders || []);
-      setLaundryOrders(data.laundryOrders || []);
-      setTransport(data.transport || []);
-      setCorporates(data.corporates || []);
-      setStaff(data.staff || []);
-      setAttendance(data.attendance || []);
-      setDoorAccess(data.doorAccess || []);
-      setPrecheckins(data.precheckins || []);
-      setPaymentLinks(data.paymentLinks || []);
-      setNotifications(data.notifications || []);
     } catch(error) {
       notify(error instanceof Error ? error.message : "Unable to load hotel data");
     } finally {
@@ -204,16 +180,10 @@ export default function Home() {
       {active==="Housekeeping" && <Housekeeping tasks={tasks} pmsAction={pmsAction} notify={notify}/>}
       {active==="Maintenance" && <Maintenance rooms={rooms} maintenance={maintenance} pmsAction={pmsAction} notify={notify}/>}
       {active==="Billing" && <Billing bookings={bookings} pmsAction={pmsAction} notify={notify}/>}
-      {active==="POS" && <POS bookings={bookings} orders={posOrders} pmsAction={pmsAction} notify={notify}/>}
-      {active==="Inventory" && <Inventory inventory={inventory} pmsAction={pmsAction} notify={notify}/>}
-      {active==="Guest Services" && <GuestServices bookings={bookings} laundry={laundryOrders} transport={transport} doorAccess={doorAccess} precheckins={precheckins} paymentLinks={paymentLinks} pmsAction={pmsAction} notify={notify}/>}
-      {active==="Corporate" && <Corporate corporates={corporates} pmsAction={pmsAction} notify={notify}/>}
-      {active==="CRM" && <CRM bookings={bookings} notifications={notifications} pmsAction={pmsAction} notify={notify}/>}
       {active==="Expenses" && <Expenses expenses={expenses}/>}
-      {active==="Staff" && <Staff staff={staff} attendance={attendance} pmsAction={pmsAction} notify={notify}/>}
       {active==="Reports" && <Reports bookings={bookings} expenses={expenses} rooms={rooms}/>}
       {active==="Night Audit" && <NightAudit bookings={bookings} rooms={rooms} pmsAction={pmsAction} notify={notify}/>}
-      {active==="Integrations" && <Integrations integrations={integrations} pmsAction={pmsAction} notify={notify}/>}
+      {active==="Staff" && <Staff pmsAction={pmsAction} notify={notify}/>} 
       {active==="Settings" && <Settings/>}
     </main>
 
@@ -402,56 +372,14 @@ function NightAudit({bookings,rooms,pmsAction,notify}:{bookings:Booking[];rooms:
  return <section className="content"><SectionHead title="Night Audit" text="Close the business day only after exceptions are reviewed."/><div className="auditbox"><div className="audithead"><div><span className="pill">BUSINESS DAY</span><h2>01 October 2026</h2></div><button className="primary" onClick={closeDay}>Close business day</button></div><Checklist items={[rooms.filter(r=>r.status==="Occupied").length+" occupied rooms reconciled",open.length+" open folios require review",rooms.filter(r=>r.status==="Dirty").length+" dirty rooms carried to housekeeping","OTA & direct collections reviewed","Cash drawer counted and handed over"]}/></div></section>
 }
 
-function Staff({staff,attendance,pmsAction,notify}:{staff:any[];attendance:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
+function Staff({pmsAction,notify}:{pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
  const [handover,setHandover]=useState("Room 304 remains out of order. Follow up electrical inspection. Guest in 302 has late checkout approved until 13:00. Room 103 must be ready before 11:30 arrival.");
- async function save(){ if(!handover.trim()){notify("Handover note cannot be empty");return;} try{await pmsAction({action:"saveHandover",shiftName:"Evening",author:"Front Desk",note:handover},"Shift handover saved");}catch(error){notify(error instanceof Error?error.message:"Unable to save handover");}}
- async function punch(id:string,kind:"IN"|"OUT"){try{await pmsAction({action:"punchAttendance",staffId:id,kind},"Attendance updated");}catch(error){notify(error instanceof Error?error.message:"Attendance failed");}}
- return <section className="content"><SectionHead title="Staff & attendance" text="Operational roles, live attendance and shift handover."/><div className="cards3">{staff.map((m:any)=>{const a=attendance.find((x:any)=>x.staffId===m.id&&x.workDate===today);return <div className="profilecard" key={m.id}><div className="guestavatar">{m.full_name.split(" ").map((x:string)=>x[0]).join("").slice(0,2)}</div><h3>{m.full_name}</h3><p>{m.role} · {m.shift||"General"}</p><div className="rowactions"><button className="mini" disabled={!!a?.checkIn} onClick={()=>punch(m.id,"IN")}>Check in</button><button className="mini" disabled={!a?.checkIn||!!a?.checkOut} onClick={()=>punch(m.id,"OUT")}>Check out</button></div><span className="vip">{a?.checkOut?"Shift complete":a?.checkIn?"On duty":"Not checked in"}</span></div>})}</div><div className="notebox"><div className="cardhead"><b>Shift handover</b><button onClick={save}>Save →</button></div><textarea value={handover} onChange={e=>setHandover(e.target.value)}/></div></section>
-}
-
-
-function POS({bookings,orders,pmsAction,notify}:{bookings:Booking[];orders:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- async function add(){
-  const active=bookings.filter(b=>b.status==="Checked-in"); if(!active.length){notify("No checked-in guests available");return;}
-  const bookingNo=window.prompt("Booking number",active[0].id); if(!bookingNo)return;
-  const item=window.prompt("Restaurant / room-service item","Dinner"); if(!item)return;
-  const price=Number(window.prompt("Unit price","650")||0); if(price<=0)return;
-  const qty=Number(window.prompt("Quantity","1")||1);
-  try{await pmsAction({action:"createPosOrder",bookingNo,outlet:"Restaurant",items:[{item_name:item,quantity:qty,unit_price:price,tax_rate:0}],postToRoom:true},"POS order posted to room folio");}catch(e){notify(e instanceof Error?e.message:"POS order failed");}
+ async function save(){
+   if(!handover.trim()){notify("Handover note cannot be empty");return;}
+   try{await pmsAction({action:"saveHandover",shiftName:"Evening",author:"Front Desk",note:handover},"Shift handover saved");}
+   catch(error){notify(error instanceof Error?error.message:"Unable to save handover");}
  }
- return <section className="content"><div className="sectionhead"><div><h2>Restaurant & POS</h2><p>Post restaurant and room-service charges directly to guest folios.</p></div><button className="primary" onClick={add}>+ New POS order</button></div><div className="metrics"><Metric label="Orders" value={String(orders.length)} sub="Restaurant & room service"/><Metric label="Posted revenue" value={money(orders.reduce((s:number,o:any)=>s+Number(o.total||0),0))} sub="Current order history"/><Metric label="In-house guests" value={String(bookings.filter(b=>b.status==="Checked-in").length)} sub="Eligible for room posting"/><Metric label="Posting" value="Live" sub="Updates folio instantly"/></div><div className="tablecard"><Table headers={["Order","Guest","Booking","Outlet","Status","Total"]} rows={orders.map((o:any)=>[o.orderNo,o.guest||"—",o.bookingNo||"—",o.outlet,o.status,money(Number(o.total||0))])}/></div></section>
-}
-
-function Inventory({inventory,pmsAction,notify}:{inventory:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- async function adjust(item:any,direction:"IN"|"OUT"){const q=Number(window.prompt(direction==="IN"?"Quantity received":"Quantity consumed","1")||0);if(q<=0)return;try{await pmsAction({action:"inventoryAdjust",itemId:item.id,txnType:direction==="IN"?"Purchase":"Consumption",quantity:q,direction,note:"PMS stock movement"},"Inventory updated");}catch(e){notify(e instanceof Error?e.message:"Inventory update failed");}}
- const low=inventory.filter((i:any)=>Number(i.current_stock)<=Number(i.reorder_level));
- return <section className="content"><SectionHead title="Inventory & stock" text="Housekeeping, F&B and maintenance inventory with live reorder visibility."/><div className="metrics"><Metric label="Stock items" value={String(inventory.length)} sub="Active SKUs"/><Metric label="Low stock" value={String(low.length)} sub="At or below reorder level" warn/><Metric label="Categories" value={String(new Set(inventory.map((i:any)=>i.category)).size)} sub="Operational groups"/><Metric label="Ledger" value="Live" sub="Every movement recorded"/></div><div className="tablecard"><table><thead><tr>{["SKU","Item","Category","Stock","Reorder","Unit cost","Actions"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{inventory.map((i:any)=><tr key={i.id}><td className="mono">{i.sku}</td><td><b>{i.item_name}</b></td><td>{i.category}</td><td>{i.current_stock} {i.unit}</td><td>{i.reorder_level}</td><td>{money(Number(i.unit_cost||0))}</td><td><div className="rowactions"><button className="mini" onClick={()=>adjust(i,"IN")}>Receive</button><button className="mini" onClick={()=>adjust(i,"OUT")}>Consume</button></div></td></tr>)}</tbody></table></div></section>
-}
-
-function GuestServices({bookings,laundry,transport,doorAccess,precheckins,paymentLinks,pmsAction,notify}:{bookings:Booking[];laundry:any[];transport:any[];doorAccess:any[];precheckins:any[];paymentLinks:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- const active=bookings.filter(b=>["Confirmed","Checked-in"].includes(b.status));
- async function laundryAdd(){const b=window.prompt("Booking number",active[0]?.id||"");if(!b)return;const item=window.prompt("Laundry item","Shirt × 2");if(!item)return;const total=Number(window.prompt("Total charge","300")||0);try{await pmsAction({action:"createLaundry",bookingNo:b,items:[{item}],total},"Laundry order created and posted to folio");}catch(e){notify(e instanceof Error?e.message:"Laundry failed");}}
- async function transportAdd(){const b=window.prompt("Booking number",active[0]?.id||"");if(!b)return;const pickup=window.prompt("Pickup location","Shillong Airport");const drop=window.prompt("Drop location","La Shimti Hotel");if(!pickup||!drop)return;const amount=Number(window.prompt("Charge","1200")||0);try{await pmsAction({action:"createTransport",bookingNo:b,pickup,drop,pickupTime:new Date(Date.now()+86400000).toISOString(),vehicle:"Sedan",amount},"Transport scheduled and charge posted");}catch(e){notify(e instanceof Error?e.message:"Transport failed");}}
- async function access(){const b=window.prompt("Booking number",active[0]?.id||"");if(!b)return;try{const r=await pmsAction({action:"issueDoorAccess",bookingNo:b,provider:"Manual"},"Room access issued");if(r?.access_code)window.alert("Access code: "+r.access_code);}catch(e){notify(e instanceof Error?e.message:"Access issue failed");}}
- async function precheck(){const b=window.prompt("Booking number",active[0]?.id||"");if(!b)return;try{const r=await pmsAction({action:"createPrecheckin",bookingNo:b},"Digital pre-check-in link created");if(r?.token)window.alert("Pre-check-in token: "+r.token);}catch(e){notify(e instanceof Error?e.message:"Pre-check-in failed");}}
- async function paylink(){const b=window.prompt("Booking number",active[0]?.id||"");if(!b)return;const amount=Number(window.prompt("Payment link amount","1000")||0);if(amount<=0)return;try{await pmsAction({action:"createPaymentLink",bookingNo:b,amount,provider:"Manual",baseUrl:window.location.origin},"Payment request created");}catch(e){notify(e instanceof Error?e.message:"Payment request failed");}}
- return <section className="content"><SectionHead title="Guest services" text="Laundry, transport, pre-arrival, payment requests and room access."/><div className="quickgrid"><button className="actiontile" onClick={laundryAdd}><b>Laundry</b><span>Create order + folio charge</span></button><button className="actiontile" onClick={transportAdd}><b>Airport / transport</b><span>Schedule ride + post charge</span></button><button className="actiontile" onClick={access}><b>Room access</b><span>Issue temporary access code</span></button><button className="actiontile" onClick={precheck}><b>Digital pre-check-in</b><span>Create secure guest token</span></button><button className="actiontile" onClick={paylink}><b>Payment request</b><span>Create tracked payment link</span></button></div><div className="dashgrid"><Card title="Laundry orders"><Table headers={["Order","Guest","Room","Status","Total"]} rows={laundry.map((l:any)=>[l.orderNo,l.guest,l.room,l.status,money(Number(l.total||0))])}/></Card><Card title="Transport"><Table headers={["Guest","Pickup","Drop","Status","Amount"]} rows={transport.map((t:any)=>[t.guest_name,t.pickup_location,t.drop_location,t.status,money(Number(t.amount||0))])}/></Card></div><div className="dashgrid"><Card title="Active room access"><Table headers={["Booking","Room","Code","Provider","Valid until"]} rows={doorAccess.map((d:any)=>[d.bookingNo,d.room,d.accessCode,d.provider,String(d.validUntil).slice(0,16)])}/></Card><Card title="Guest links"><Table headers={["Type","Booking","Status","Reference"]} rows={[...precheckins.map((p:any)=>["Pre-check-in",p.bookingNo,p.completedAt?"Completed":"Active",p.token]),...paymentLinks.map((p:any)=>["Payment",p.bookingNo,p.status,money(Number(p.amount||0))])].slice(0,10)}/></Card></div></section>
-}
-
-function Corporate({corporates,pmsAction,notify}:{corporates:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- async function add(){const companyName=window.prompt("Company name");if(!companyName)return;const gstin=window.prompt("GSTIN (optional)")||"";const creditLimit=Number(window.prompt("Credit limit","50000")||0);const discount=Number(window.prompt("Negotiated discount %","0")||0);try{await pmsAction({action:"createCorporate",companyName,gstin,creditLimit,discount},"Corporate account created");}catch(e){notify(e instanceof Error?e.message:"Corporate account failed");}}
- return <section className="content"><div className="sectionhead"><div><h2>Corporate & travel accounts</h2><p>Negotiated rates, GST billing and controlled credit.</p></div><button className="primary" onClick={add}>+ Corporate account</button></div><div className="cards3">{corporates.map((c:any)=><div className="reportcard" key={c.id}><span>CO</span><h3>{c.company_name}</h3><p>{c.gstin||"GSTIN not set"} · Credit {money(Number(c.credit_limit||0))}</p><span className="vip">{Number(c.negotiated_discount_percent||0)}% negotiated discount</span></div>)}</div></section>
-}
-
-function CRM({bookings,notifications,pmsAction,notify}:{bookings:Booking[];notifications:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- async function review(b:Booking){try{await pmsAction({action:"queueReview",bookingNo:b.id,channel:"Google"},"Google review request queued");}catch(e){notify(e instanceof Error?e.message:"Review queue failed");}}
- async function message(b:Booking,channel:string){try{await pmsAction({action:"queueNotification",bookingNo:b.id,channel,template:"guest_update",payload:{guest:b.guest,booking:b.id}}),channel+" notification queued");}catch(e){notify(e instanceof Error?e.message:"Notification failed");}}
- return <section className="content"><SectionHead title="Guest CRM & communications" text="Repeat-guest engagement, review requests and multichannel messaging queue."/><div className="tablecard"><table><thead><tr>{["Guest","Booking","Room","Status","Communication"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{bookings.map(b=><tr key={b.id}><td><b>{b.guest}</b><small>{b.phone}</small></td><td>{b.id}</td><td>{b.room}</td><td>{b.status}</td><td><div className="rowactions"><button className="mini" onClick={()=>message(b,"WhatsApp")}>WhatsApp</button><button className="mini" onClick={()=>message(b,"Email")}>Email</button>{b.status==="Checked-out"&&<button className="mini" onClick={()=>review(b)}>Review</button>}</div></td></tr>)}</tbody></table></div><div className="card" style={{marginTop:14}}><div className="cardhead"><h3>Notification outbox</h3></div><Table headers={["Channel","Recipient","Template","Status","Scheduled"]} rows={notifications.map((n:any)=>[n.channel,n.recipient,n.template_key||"—",n.status,String(n.scheduled_at).slice(0,16)]).slice(0,20)}/></div></section>
-}
-
-function Integrations({integrations,pmsAction,notify}:{integrations:any[];pmsAction:(p:Record<string,unknown>,s?:string)=>Promise<any>;notify:(x:string)=>void}){
- async function toggle(i:any){if(i.status==="Not connected"){notify(i.display_name+" needs vendor credentials / partner access before it can go live");return;}try{await pmsAction({action:"integrationStatus",provider:i.provider,enabled:!i.enabled},i.display_name+" updated");}catch(e){notify(e instanceof Error?e.message:"Integration update failed");}}
- return <section className="content"><SectionHead title="Integration control center" text="Live adapters, connection readiness and external service status."/><div className="cards3">{integrations.map((i:any)=><div className="integrationcard" key={i.provider}><div className="integrationtop"><div><span className="eyebrow">{i.category}</span><h3>{i.display_name}</h3></div><span className={"connection "+String(i.status).toLowerCase().replaceAll(" ","-")}>{i.status}</span></div><p>{i.status==="Not connected"?"Adapter ready · vendor credentials or partner approval required":i.last_error||"Connection configured"}</p><button className="mini" onClick={()=>toggle(i)}>{i.status==="Not connected"?"Credentials required":i.enabled?"Pause":"Enable"}</button></div>)}</div></section>
+ return <section className="content"><SectionHead title="Staff & shifts" text="Operational roles, contact details and handover notes."/><div className="cards3">{[["Front Desk","Aisha Kharshiing","Evening · On duty"],["Housekeeping","Mary Nongrum","Floor 1 & 3"],["Housekeeping","Bina Marbaniang","Floor 2"],["Manager","R. Lyngdoh","Property manager"],["Maintenance","Daniel K.","On call"]].map(s=><div className="profilecard" key={s[1]}><div className="guestavatar">{s[1].split(" ").map(x=>x[0]).join("").slice(0,2)}</div><h3>{s[1]}</h3><p>{s[0]}</p><span className="vip">{s[2]}</span></div>)}</div><div className="notebox"><div className="cardhead"><b>Shift handover</b><button onClick={save}>Save →</button></div><textarea value={handover} onChange={e=>setHandover(e.target.value)}/></div></section>
 }
 
 function Settings(){return <section className="content"><SectionHead title="Hotel settings" text="Core property, billing and operational configuration."/><div className="settingsgrid"><Card title="Property profile"><SettingsRow k="Property" v="La Shimti Hotel"/><SettingsRow k="City" v="Shillong, Meghalaya"/><SettingsRow k="Currency" v="INR (₹)"/><SettingsRow k="Check-in" v="12:00 PM"/><SettingsRow k="Check-out" v="11:00 AM"/></Card><Card title="Billing"><SettingsRow k="Invoice prefix" v="LSH"/><SettingsRow k="GST" v="Configurable CGST + SGST"/><SettingsRow k="SAC" v="996311"/><SettingsRow k="Payment methods" v="Cash · UPI · Card · Bank · OTA"/></Card><Card title="Integrations"><SettingsRow k="WhatsApp" v="Not connected"/><SettingsRow k="Email" v="Not connected"/><SettingsRow k="Payment gateway" v="Not connected"/><SettingsRow k="OTA channel manager" v="Phase 2"/></Card><Card title="Access roles"><SettingsRow k="Owner / Admin" v="Full access"/><SettingsRow k="Front Desk" v="Bookings · Rooms · Billing"/><SettingsRow k="Housekeeping" v="Room tasks only"/><SettingsRow k="Accounts" v="Billing · Expenses · Reports"/></Card></div></section>}
