@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 type Row={ [key:string]: any };
 type Booking={id:string;guest:string;phone:string;room:string;status:string;amount:number;paid:number};
 
-const sections=["Overview","POS","Inventory","Guest Services","Corporate","CRM","Staff","Integrations"];
+const sections=["Overview","POS","Inventory","Guest Services","Corporate","CRM","Staff","Analytics","Assistant","Export","Integrations"];
 
 export default function OperationsPage(){
   const [section,setSection]=useState("Overview");
@@ -46,6 +46,10 @@ export default function OperationsPage(){
   const staff=(data.staff||[]) as Row[];
   const attendance=(data.attendance||[]) as Row[];
   const notifications=(data.notifications||[]) as Row[];
+  const rooms=(data.rooms||[]) as Row[];
+  const expenses=(data.expenses||[]) as Row[];
+  const [assistantQuery,setAssistantQuery]=useState("");
+  const [assistantAnswer,setAssistantAnswer]=useState("");
 
   const metrics=useMemo(()=>({
     connected:integrations.filter(i=>i.status==="Live"||i.status==="Configured").length,
@@ -104,6 +108,38 @@ export default function OperationsPage(){
     await act({action:"punchAttendance",staffId:member.id,kind},"Attendance updated");
   }
 
+  function askAssistant(){
+    const q=assistantQuery.toLowerCase().trim();
+    const due=bookings.filter(b=>b.amount>b.paid).sort((a,b)=>(b.amount-b.paid)-(a.amount-a.paid));
+    const available=rooms.filter(r=>r.status==="Available");
+    const dirty=rooms.filter(r=>["Dirty","Cleaning"].includes(r.status));
+    const tomorrow="2026-10-02";
+    const arrivals=bookings.filter(b=>b.checkIn===tomorrow&&b.status==="Confirmed");
+    const departures=bookings.filter(b=>b.checkOut===tomorrow&&b.status==="Checked-in");
+    let answer="Try asking about available rooms, pending payments, tomorrow's arrivals, departures, low stock, or today's revenue.";
+    if(q.includes("available")&&q.includes("room")) answer=available.length+" rooms are available: "+available.map(r=>r.number).join(", ")+".";
+    else if(q.includes("pending")||q.includes("outstanding")||q.includes("due")) answer=due.length?due.slice(0,5).map(b=>b.guest+" ("+b.id+"): ₹"+Math.round(b.amount-b.paid).toLocaleString("en-IN")).join(" · "):"No outstanding guest folios.";
+    else if(q.includes("arrival")) answer=arrivals.length?arrivals.map(b=>b.guest+" · Room "+b.room+" · "+b.id).join(" · "):"No confirmed arrivals tomorrow.";
+    else if(q.includes("departure")) answer=departures.length?departures.map(b=>b.guest+" · Room "+b.room).join(" · "):"No scheduled departures tomorrow.";
+    else if(q.includes("dirty")||q.includes("housekeeping")) answer=dirty.length?dirty.length+" rooms need housekeeping attention: "+dirty.map(r=>r.number+" ("+r.status+")").join(", "):"No rooms currently need housekeeping attention.";
+    else if(q.includes("stock")) answer=lowStock.length?lowStock.map(i=>i.item_name+" ("+i.current_stock+" "+i.unit+")").join(" · "):"No inventory items are at or below reorder level.";
+    else if(q.includes("revenue")||q.includes("collection")) answer="Recorded collections across current folios: ₹"+Math.round(bookings.reduce((sum,b)=>sum+b.paid,0)).toLocaleString("en-IN")+". POS posted revenue: ₹"+Math.round(metrics.posRevenue).toLocaleString("en-IN")+".";
+    setAssistantAnswer(answer);
+  }
+
+  function downloadJson(){
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="la-shimti-backup-2026-10-01.json"; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function downloadCsv(){
+    const header=["booking_no","guest","phone","room","check_in","check_out","source","status","gross","paid","due"];
+    const rows=bookings.map(b=>[b.id,b.guest,b.phone,b.room,(b as any).checkIn||"",(b as any).checkOut||"",(b as any).source||"",b.status,b.amount,b.paid,b.amount-b.paid]);
+    const esc=(v:any)=>"\""+String(v??"").replaceAll("\"","\"\"")+"\"";
+    const csv=[header,...rows].map(r=>r.map(esc).join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="la-shimti-reservations.csv"; a.click(); URL.revokeObjectURL(url);
+  }
+
   return <div className="ops">
     <aside className="opsnav">
       <div className="brand"><div className="brandmark">LS</div><div><b>LA SHIMTI</b><span>Operations Hub</span></div></div>
@@ -126,6 +162,9 @@ export default function OperationsPage(){
         {section==="Corporate"&&<><Head t="Corporate & travel accounts" d="Credit control and negotiated corporate relationships." action="+ Corporate account" on={corporate}/><div className="cards3">{corporates.map(c=><div className="reportcard" key={c.id}><span>CO</span><h3>{c.company_name}</h3><p>{c.gstin||"GSTIN not set"} · Credit ₹{Number(c.credit_limit||0).toLocaleString("en-IN")}</p><span className="vip">{Number(c.negotiated_discount_percent||0)}% negotiated discount</span></div>)}</div></>}
         {section==="CRM"&&<><Head t="Guest CRM & communications" d="All outbound communication is queued and auditable."/><div className="tablecard"><table><thead><tr>{["Guest","Booking","Room","Status","Actions"].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{bookings.map(b=><tr key={b.id}><td><b>{b.guest}</b><small>{b.phone}</small></td><td>{b.id}</td><td>{b.room}</td><td>{b.status}</td><td><div className="rowactions"><button className="mini" onClick={()=>notifyGuest(b,"WhatsApp")}>WhatsApp</button><button className="mini" onClick={()=>notifyGuest(b,"Email")}>Email</button>{b.status==="Checked-out"&&<button className="mini" onClick={()=>review(b)}>Review</button>}</div></td></tr>)}</tbody></table></div><div className="card" style={{marginTop:14}}><h3>Outbox</h3><GridTable h={["Channel","Recipient","Template","Status"]} rows={notifications.slice(0,20).map(n=>[n.channel,n.recipient,n.template_key||"—",n.status])}/></div></>}
         {section==="Staff"&&<><Head t="Staff attendance" d="Manual attendance is working now; biometric devices can feed the same ledger when connected."/><div className="cards3">{staff.map(m=>{const a=attendance.find(x=>x.staffId===m.id&&x.workDate==="2026-10-01");return <div className="profilecard" key={m.id}><div className="guestavatar">{String(m.full_name).split(" ").map(x=>x[0]).join("").slice(0,2)}</div><h3>{m.full_name}</h3><p>{m.role} · {m.shift||"General"}</p><div className="rowactions"><button className="mini" disabled={!!a?.checkIn} onClick={()=>punch(m,"IN")}>Check in</button><button className="mini" disabled={!a?.checkIn||!!a?.checkOut} onClick={()=>punch(m,"OUT")}>Check out</button></div></div>})}</div></>}
+        {section==="Analytics"&&<><Head t="Management analytics" d="Live operational KPIs calculated from the shared PMS database."/><div className="metrics"><K label="Occupancy" value={rooms.length?Math.round(rooms.filter(r=>r.status==="Occupied").length/rooms.filter(r=>!["Out of Order","Maintenance"].includes(r.status)).length*100)+"%":"0%"} sub="Sellable room occupancy"/><K label="Outstanding" value={"₹"+Math.round(bookings.reduce((x,b)=>x+Math.max(0,b.amount-b.paid),0)).toLocaleString("en-IN")} sub="Open guest receivables"/><K label="Operating spend" value={"₹"+Math.round(expenses.reduce((x,e)=>x+Number(e.amount||0),0)).toLocaleString("en-IN")} sub="Recorded expenses"/><K label="Low stock" value={String(lowStock.length)} sub="Reorder attention"/></div><div className="dashgrid"><div className="card"><h3>Booking source mix</h3>{Array.from(new Set(bookings.map(b=>(b as any).source||"Direct"))).map(src=>{const n=bookings.filter(b=>((b as any).source||"Direct")===src).length;return <div className="settingrow" key={src}><span>{src}</span><b>{n}</b></div>})}</div><div className="card"><h3>Room status mix</h3>{["Available","Reserved","Occupied","Dirty","Cleaning","Out of Order"].map(st=><div className="settingrow" key={st}><span>{st}</span><b>{rooms.filter(r=>r.status===st).length}</b></div>)}</div></div></>}
+        {section==="Assistant"&&<><Head t="Hotel operations assistant" d="Ask operational questions against the live PMS data. No external AI key is required for these supported queries."/><div className="card assistantbox"><input value={assistantQuery} onChange={e=>setAssistantQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")askAssistant()}} placeholder="e.g. Which rooms are available? Who has pending payment?"/><button className="primary" onClick={askAssistant}>Ask</button>{assistantAnswer&&<div className="assistantanswer">{assistantAnswer}</div>}<div className="assistantprompts"><button className="mini" onClick={()=>{setAssistantQuery("available rooms");setAssistantAnswer("")}}>Available rooms</button><button className="mini" onClick={()=>{setAssistantQuery("pending payments");setAssistantAnswer("")}}>Pending payments</button><button className="mini" onClick={()=>{setAssistantQuery("tomorrow arrivals");setAssistantAnswer("")}}>Tomorrow arrivals</button><button className="mini" onClick={()=>{setAssistantQuery("low stock");setAssistantAnswer("")}}>Low stock</button></div></div></>}
+        {section==="Export"&&<><Head t="Data export & backup" d="Take a portable snapshot of hotel operations or export reservation data for accounting and analysis."/><div className="quickgrid"><Tile t="Full JSON backup" d="Rooms, bookings, folios, stock, operations and integration state" on={downloadJson}/><Tile t="Reservations CSV" d="Booking, guest, stay and financial summary for spreadsheet/accounting use" on={downloadCsv}/><Tile t="Print current view" d="Use the browser print dialog for reports and paper filing" on={()=>window.print()}/></div><div className="card"><h3>Backup scope</h3><p>Exports are generated from the current shared PMS state. Database-level backups remain handled by the managed database platform.</p></div></>}
         {section==="Integrations"&&<><Head t="Integration control center" d="Adapters are present. External services remain off until vendor credentials or partner approval are supplied."/><div className="cards3">{integrations.map(i=><div className="integrationcard" key={i.provider}><div className="integrationtop"><div><span className="eyebrow">{i.category}</span><h3>{i.display_name}</h3></div><span className={"connection "+String(i.status).toLowerCase().replaceAll(" ","-")}>{i.status}</span></div><p>{i.status==="Not connected"?"Connector scaffold ready; provider credentials/access still required.":i.last_error||"Configured"}</p></div>)}</div></>}
       </section>}
     </main>
