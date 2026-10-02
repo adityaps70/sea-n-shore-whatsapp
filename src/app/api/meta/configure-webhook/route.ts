@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/?webhook=missing_env", request.url), 303);
   }
 
-  const baseUrl = env.publicAppUrl || request.nextUrl.origin;
+  const baseUrl = env.publicAppUrl || "https://dapper-kitsune-a4a298.netlify.app";
   const callbackUrl = new URL("/api/meta/webhook", baseUrl).toString();
 
   // Step 1: obtain a fresh App Access Token from Meta.
