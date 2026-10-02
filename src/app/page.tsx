@@ -7,12 +7,14 @@ async function getStats() {
     return { contacts: 0, eligible: 0, campaigns: 0, delivered: 0, recent: [] as Array<Record<string, unknown>>, latestInbound: null as null | { from_number: string; received_at: string }, latestService: null as null | { status: string; created_at: string; to_number: string } };
   }
   const supabase = createAdminClient();
-  const [contacts, eligible, campaigns, delivered, recent, latestInbound, latestService] = await Promise.all([
+  const [contacts, eligible, campaigns, delivered, recent] = await Promise.all([
     supabase.from("contacts").select("*", { count: "exact", head: true }),
     supabase.from("contacts").select("*", { count: "exact", head: true }).eq("marketing_status", "eligible"),
     supabase.from("campaigns").select("*", { count: "exact", head: true }),
     supabase.from("messages").select("*", { count: "exact", head: true }).in("status", ["delivered", "read"]),
     supabase.from("campaigns").select("id,name,status,created_at").order("created_at", { ascending: false }).limit(6),
+  ]);
+  const [latestInbound, latestService] = await Promise.all([
     supabase.from("inbound_messages").select("from_number,received_at").order("received_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("service_messages").select("status,created_at,to_number").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
