@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
     .from("contacts")
     .select("id,phone_e164,full_name")
     .eq("marketing_status", "eligible")
+    .not("consent_source", "is", null)
+    .not("consent_at", "is", null)
     .is("opted_out_at", null);
 
   const category = (campaign.target_filter as { category?: string } | null)?.category;
