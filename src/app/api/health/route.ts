@@ -5,6 +5,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "sea-n-shore-whatsapp",
+    release: "cloudflare-outbound-template-v1",
+    features: ["production_service_reply", "launch_template_submission", "template_quality_monitoring"],
     supabaseConfigured: hasSupabaseServerEnv(),
     metaConfigured: hasWhatsAppEnv(),
     verifyTokenConfigured: Boolean(env.whatsappVerifyToken),
