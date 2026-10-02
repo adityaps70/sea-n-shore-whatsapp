@@ -1,7 +1,7 @@
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; config?: string }>;
 }) {
   const params = await searchParams;
 
@@ -11,7 +11,11 @@ export default async function LoginPage({
         <div className="brand">Sea N Shore · WhatsApp</div>
         <p className="muted">Admin access only</p>
 
-        {params.error ? (
+        {params.config ? (
+          <p style={{ color: "#9b1c1c", fontWeight: 700 }}>
+            Cloudflare admin authentication variables are missing. Restore ADMIN_EMAILS, DASHBOARD_ADMIN_PASSWORD and DASHBOARD_AUTH_SECRET in Worker settings.
+          </p>
+        ) : params.error ? (
           <p style={{ color: "#9b1c1c", fontWeight: 700 }}>
             Invalid email or password.
           </p>
