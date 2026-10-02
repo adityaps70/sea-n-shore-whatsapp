@@ -4,17 +4,22 @@ import type { NextRequest } from "next/server";
 export const ADMIN_COOKIE = "sns_admin_session";
 const SESSION_HOURS = 8;
 
-function authSecret() {
-  const secret = process.env.DASHBOARD_AUTH_SECRET;
-  if (!secret) throw new Error("DASHBOARD_AUTH_SECRET is not configured.");
-  return secret;
+function sign(payload: string, secret: string) {
+  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }
 
-function sign(payload: string) {
-  return crypto.createHmac("sha256", authSecret()).update(payload).digest("hex");
+export function hasAdminAuthEnv() {
+  return Boolean(
+    process.env.DASHBOARD_AUTH_SECRET &&
+    process.env.DASHBOARD_ADMIN_PASSWORD &&
+    process.env.ADMIN_EMAILS
+  );
 }
 
 export function createAdminSession(email: string) {
+  const secret = process.env.DASHBOARD_AUTH_SECRET;
+  if (!secret) return null;
+
   const payload = Buffer.from(
     JSON.stringify({
       email: email.trim().toLowerCase(),
@@ -22,16 +27,19 @@ export function createAdminSession(email: string) {
     })
   ).toString("base64url");
 
-  return `${payload}.${sign(payload)}`;
+  return `${payload}.${sign(payload, secret)}`;
 }
 
 export function verifyAdminSession(token?: string | null) {
   if (!token) return null;
 
+  const secret = process.env.DASHBOARD_AUTH_SECRET;
+  if (!secret) return null;
+
   const [payload, signature] = token.split(".");
   if (!payload || !signature) return null;
 
-  const expected = sign(payload);
+  const expected = sign(payload, secret);
   if (signature.length !== expected.length) return null;
 
   const valid = crypto.timingSafeEqual(
