@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/?webhook=missing_env", request.url), 303);
   }
 
-  const baseUrl = env.publicAppUrl || "https://dapper-kitsune-a4a298.netlify.app";
+  const baseUrl = env.publicAppUrl || "https://sea-n-shore-whatsapp.hunupunu.workers.dev";
   const callbackUrl = new URL("/api/meta/webhook", baseUrl).toString();
 
   // Step 1: obtain a fresh App Access Token from Meta.
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     object: "whatsapp_business_account",
     callback_url: callbackUrl,
     verify_token: env.whatsappVerifyToken!,
-    fields: "messages",
+    fields: "messages,message_template_status_update,message_template_quality_update,phone_number_quality_update,template_category_update",
     access_token: tokenPayload.access_token,
   });
 
