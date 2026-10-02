@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { env, hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
-import { hasAdminAuthEnv } from "@/lib/auth";
 
 export async function GET() {
   return NextResponse.json({
@@ -10,7 +9,7 @@ export async function GET() {
     features: ["production_service_reply", "launch_template_submission", "template_quality_monitoring"],
     supabaseConfigured: hasSupabaseServerEnv(),
     metaConfigured: hasWhatsAppEnv(),
-    adminAuthConfigured: hasAdminAuthEnv(),
+    adminAuthConfigured: Boolean(process.env.ADMIN_EMAILS && process.env.DASHBOARD_ADMIN_PASSWORD && process.env.DASHBOARD_AUTH_SECRET),
     verifyTokenConfigured: Boolean(env.whatsappVerifyToken),
     appSecretConfigured: Boolean(env.whatsappAppSecret),
     timestamp: new Date().toISOString(),
