@@ -68,6 +68,12 @@ export async function POST(request: NextRequest) {
 
     const changes = payload?.entry?.flatMap((entry: any) => entry?.changes ?? []) ?? [];
     for (const change of changes) {
+      if (change?.field && change.field !== "messages") {
+        await supabase.from("whatsapp_asset_events").insert({
+          field: change.field,
+          payload: change.value ?? change,
+        });
+      }
       const statuses = change?.value?.statuses ?? [];
       for (const status of statuses) {
         const statusUpdate = {
