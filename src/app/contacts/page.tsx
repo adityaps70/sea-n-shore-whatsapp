@@ -34,6 +34,11 @@ export default async function ContactsPage({
           country/nationality, old_whatsapp_field, consent_source and consent_at.
           Imported contacts stay <strong>unknown</strong> unless both consent_source and consent_at are supplied.
         </p>
+        <p className="muted">
+          WhatsApp consent commands: <strong>START</strong> or <strong>SUBSCRIBE</strong> records an explicit opt-in.
+          <strong> STOP</strong>, <strong>UNSUBSCRIBE</strong>, <strong>CANCEL</strong>, <strong>END</strong> or <strong>QUIT</strong>
+          immediately opts the number out. Generic replies such as "yes" never change consent automatically.
+        </p>
 
         {params.imported ? (
           <p><strong>{params.imported}</strong> imported/upserted · <strong>{params.rejected || "0"}</strong> rejected</p>
