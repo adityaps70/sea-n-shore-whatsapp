@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
           {
             type: "HEADER",
             format: "TEXT",
-            text: "Sea N Shore is live ⚓",
+            text: "Sea N Shore is live",
           },
           {
             type: "BODY",
@@ -85,6 +85,11 @@ export async function POST(request: NextRequest) {
       meta_template_id: payload?.id ?? null,
       error_code: payload?.error?.code ?? null,
       error_message: payload?.error?.message ?? null,
+      error_type: payload?.error?.type ?? null,
+      error_subcode: payload?.error?.error_subcode ?? null,
+      error_user_title: payload?.error?.error_user_title ?? null,
+      error_user_msg: payload?.error?.error_user_msg ?? null,
+      error_data: payload?.error?.error_data ?? null,
     },
   });
 
