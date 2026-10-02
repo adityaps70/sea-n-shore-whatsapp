@@ -70,13 +70,20 @@ export async function POST(request: NextRequest) {
     for (const change of changes) {
       const statuses = change?.value?.statuses ?? [];
       for (const status of statuses) {
+        const statusUpdate = {
+          status: status.status,
+          provider_status_payload: status,
+          updated_at: new Date().toISOString(),
+        };
+
         await supabase
           .from("messages")
-          .update({
-            status: status.status,
-            provider_status_payload: status,
-            updated_at: new Date().toISOString(),
-          })
+          .update(statusUpdate)
+          .eq("meta_message_id", status.id);
+
+        await supabase
+          .from("service_messages")
+          .update(statusUpdate)
           .eq("meta_message_id", status.id);
       }
 
