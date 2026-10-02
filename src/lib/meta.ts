@@ -8,6 +8,43 @@ export type TemplateSend = {
   bodyParameters?: string[];
 };
 
+export type TextSend = {
+  to: string;
+  body: string;
+};
+
+function assertWhatsAppSendEnv() {
+  if (
+    !env.whatsappAccessToken ||
+    !env.whatsappPhoneNumberId ||
+    !env.whatsappGraphApiVersion
+  ) {
+    throw new Error("WhatsApp Cloud API environment is not configured.");
+  }
+}
+
+async function postMessage(payload: Record<string, unknown>) {
+  assertWhatsAppSendEnv();
+
+  const response = await fetch(
+    `https://graph.facebook.com/${env.whatsappGraphApiVersion}/${env.whatsappPhoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.whatsappAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(`Meta API error ${response.status}: ${JSON.stringify(result)}`);
+  }
+  return result;
+}
+
 export function verifyMetaSignature(rawBody: string, signatureHeader: string | null) {
   if (!env.whatsappAppSecret || !signatureHeader?.startsWith("sha256=")) return false;
   const expected = crypto
@@ -19,15 +56,20 @@ export function verifyMetaSignature(rawBody: string, signatureHeader: string | n
   return crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
 }
 
-export async function sendTemplateMessage(input: TemplateSend) {
-  if (
-    !env.whatsappAccessToken ||
-    !env.whatsappPhoneNumberId ||
-    !env.whatsappGraphApiVersion
-  ) {
-    throw new Error("WhatsApp Cloud API environment is not configured.");
-  }
+export async function sendTextMessage(input: TextSend) {
+  return postMessage({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: input.to,
+    type: "text",
+    text: {
+      preview_url: false,
+      body: input.body,
+    },
+  });
+}
 
+export async function sendTemplateMessage(input: TemplateSend) {
   const components = input.bodyParameters?.length
     ? [{
         type: "body",
@@ -35,31 +77,15 @@ export async function sendTemplateMessage(input: TemplateSend) {
       }]
     : undefined;
 
-  const response = await fetch(
-    `https://graph.facebook.com/${env.whatsappGraphApiVersion}/${env.whatsappPhoneNumberId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.whatsappAccessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: input.to,
-        type: "template",
-        template: {
-          name: input.templateName,
-          language: { code: input.languageCode || "en" },
-          ...(components ? { components } : {}),
-        },
-      }),
-    }
-  );
-
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(`Meta API error ${response.status}: ${JSON.stringify(payload)}`);
-  }
-  return payload;
+  return postMessage({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: input.to,
+    type: "template",
+    template: {
+      name: input.templateName,
+      language: { code: input.languageCode || "en" },
+      ...(components ? { components } : {}),
+    },
+  });
 }
