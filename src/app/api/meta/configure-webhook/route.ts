@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/?webhook=missing_env", request.url), 303);
   }
 
-  const callbackUrl = new URL("/api/meta/webhook", request.url).toString();
+  const baseUrl = env.publicAppUrl || request.nextUrl.origin;
+  const callbackUrl = new URL("/api/meta/webhook", baseUrl).toString();
 
   // Step 1: obtain a fresh App Access Token from Meta.
   const tokenUrl = new URL("https://graph.facebook.com/oauth/access_token");
