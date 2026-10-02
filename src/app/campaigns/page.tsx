@@ -5,7 +5,7 @@ import { AdminNav } from "@/components/admin-nav";
 export default async function CampaignsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string; sent?: string; failed?: string; error?: string }>;
+  searchParams: Promise<{ created?: string; sent?: string; failed?: string; error?: string; template?: string; status?: string; code?: string }>;
 }) {
   const params = await searchParams;
 
@@ -28,6 +28,20 @@ export default async function CampaignsPage({
       </div>
 
       <section className="card">
+        <h2>Sea N Shore launch template</h2>
+        <p className="muted">
+          Submit the first production marketing template to Meta for review. It links to seanshore.in and includes an opt-out instruction.
+        </p>
+        {params.template === "submitted" ? <p><strong>Template submitted to Meta.</strong> Status: {params.status || "PENDING"}</p> : null}
+        {params.template === "existing" ? <p><strong>Template already exists in this platform.</strong> Status: {params.status || "UNKNOWN"}</p> : null}
+        {params.template === "missing_env" ? <p style={{ color:"#9b1c1c", fontWeight:700 }}>Meta production configuration is incomplete.</p> : null}
+        {params.template === "error" ? <p style={{ color:"#9b1c1c", fontWeight:700 }}>Meta rejected the template submission{params.code ? ` (error ${params.code})` : ""}.</p> : null}
+        <form method="post" action="/api/meta/create-launch-template">
+          <button className="button" type="submit">Submit Sea N Shore launch template</button>
+        </form>
+      </section>
+
+      <section className="card section">
         <h2>Create campaign</h2>
         <p className="muted">Use the exact approved Meta template name. Sending is limited to contacts marked eligible and not opted out.</p>
         {params.created ? <p><strong>Campaign created.</strong></p> : null}
@@ -38,7 +52,7 @@ export default async function CampaignsPage({
           <div className="grid" style={{ gridTemplateColumns: "repeat(2,minmax(0,1fr))" }}>
             <label>Campaign name<input name="name" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
             <label>Meta template name<input name="template_name" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
-            <label>Language code<input name="language_code" defaultValue="en" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
+            <label>Language code<input name="language_code" defaultValue="en_US" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
             <label>Category filter<input name="category" placeholder="Leave blank for all" style={{ width:"100%", padding:10, marginTop:6 }} /></label>
           </div>
           <label style={{ display:"block", marginTop:14 }}>
