@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/?webhook=missing_env", request.url), 303);
   }
 
-  const baseUrl = env.publicAppUrl || "https://sea-n-shore-whatsapp.hunupunu.workers.dev";
+  const baseUrl = env.publicAppUrl && !env.publicAppUrl.includes("netlify.app") ? env.publicAppUrl : "https://sea-n-shore-whatsapp.hunupunu.workers.dev";
   const callbackUrl = new URL("/api/meta/webhook", baseUrl).toString();
 
   // Step 1: obtain a fresh App Access Token from Meta.
