@@ -69,10 +69,51 @@ export async function POST(request: NextRequest) {
     const changes = payload?.entry?.flatMap((entry: any) => entry?.changes ?? []) ?? [];
     for (const change of changes) {
       if (change?.field && change.field !== "messages") {
+        const value = change.value ?? change;
         await supabase.from("whatsapp_asset_events").insert({
           field: change.field,
-          payload: change.value ?? change,
+          payload: value,
         });
+
+        if (
+          change.field === "message_template_status_update" ||
+          change.field === "message_template_quality_update" ||
+          change.field === "template_category_update"
+        ) {
+          const metaTemplateId =
+            value?.message_template_id ??
+            value?.message_template?.id ??
+            value?.id ??
+            null;
+          const templateName =
+            value?.message_template_name ??
+            value?.message_template?.name ??
+            value?.name ??
+            null;
+          const templateStatus =
+            value?.event ??
+            value?.status ??
+            value?.quality_score?.score ??
+            null;
+
+          const updates: Record<string, unknown> = {
+            updated_at: new Date().toISOString(),
+            provider_response: value,
+          };
+          if (templateStatus) updates.status = String(templateStatus);
+
+          if (metaTemplateId) {
+            await supabase
+              .from("meta_templates")
+              .update(updates)
+              .eq("meta_template_id", String(metaTemplateId));
+          } else if (templateName) {
+            await supabase
+              .from("meta_templates")
+              .update(updates)
+              .eq("name", String(templateName));
+          }
+        }
       }
       const statuses = change?.value?.statuses ?? [];
       for (const status of statuses) {
