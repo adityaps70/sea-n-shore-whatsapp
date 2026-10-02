@@ -14,11 +14,18 @@ export default async function CampaignsPage({
   }
 
   const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("campaigns")
-    .select("id,name,template_name,language_code,status,target_filter,use_name_parameter,scheduled_at,created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const [{ data }, { data: templates }] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id,name,template_name,language_code,status,target_filter,use_name_parameter,scheduled_at,created_at")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("meta_templates")
+      .select("meta_template_id,name,language,category,status,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(20),
+  ]);
 
   return (
     <main className="shell">
@@ -39,6 +46,21 @@ export default async function CampaignsPage({
         <form method="post" action="/api/meta/create-launch-template">
           <button className="button" type="submit">Submit Sea N Shore launch template</button>
         </form>
+        {(templates ?? []).length ? (
+          <table className="table" style={{ marginTop: 18 }}>
+            <thead><tr><th>Template</th><th>Language</th><th>Category</th><th>Meta status</th></tr></thead>
+            <tbody>
+              {(templates ?? []).map((t) => (
+                <tr key={t.name}>
+                  <td>{t.name}</td>
+                  <td>{t.language}</td>
+                  <td>{t.category}</td>
+                  <td><strong>{t.status || "UNKNOWN"}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </section>
 
       <section className="card section">
