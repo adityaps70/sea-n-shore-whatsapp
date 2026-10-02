@@ -52,7 +52,12 @@ function normalizePhone(raw: string, country: string) {
 
   if (digits.startsWith("00")) digits = digits.slice(2);
 
-  if (value.startsWith("+") && digits.length >= 7 && digits.length <= 15) {
+  if (
+    value.startsWith("+") &&
+    digits.length >= 7 &&
+    digits.length <= 15 &&
+    /^[1-9]/.test(digits)
+  ) {
     return `+${digits}`;
   }
 
@@ -145,13 +150,36 @@ export async function POST(request: NextRequest) {
   const deduped = Array.from(new Map(contacts.map((c) => [c.phone_e164, c])).values());
   const supabase = createAdminClient();
 
+  let insertedContacts: Array<{ id: string; phone_e164: string }> = [];
+
   if (deduped.length) {
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("contacts")
-      .upsert(deduped, { onConflict: "phone_e164" });
+      .upsert(deduped, {
+        onConflict: "phone_e164",
+        ignoreDuplicates: true,
+      })
+      .select("id,phone_e164");
 
     if (error) {
       return NextResponse.redirect(new URL("/contacts?error=database", request.url), 303);
+    }
+
+    insertedContacts = inserted ?? [];
+
+    if (insertedContacts.length) {
+      await supabase.from("consent_events").insert(
+        insertedContacts.map((contact) => ({
+          contact_id: contact.id,
+          phone_e164: contact.phone_e164,
+          event_type: "import_unknown",
+          source: "csv_import",
+          metadata: {
+            imported_from: file.name,
+            consent_preserved: true,
+          },
+        }))
+      );
     }
   }
 
@@ -160,13 +188,15 @@ export async function POST(request: NextRequest) {
     entity_type: "contacts",
     details: {
       file_name: file.name,
-      imported: deduped.length,
+      imported: insertedContacts.length,
+      processed: deduped.length,
+      skipped_existing: deduped.length - insertedContacts.length,
       rejected,
     },
   });
 
   const url = new URL("/contacts", request.url);
-  url.searchParams.set("imported", String(deduped.length));
+  url.searchParams.set("imported", String(insertedContacts.length));
   url.searchParams.set("rejected", String(rejected));
   return NextResponse.redirect(url, 303);
 }
