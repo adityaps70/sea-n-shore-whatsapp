@@ -3,30 +3,37 @@ import { hasMetaWebhookConfigEnv, hasSupabaseServerEnv, hasWhatsAppEnv } from "@
 import { AdminNav } from "@/components/admin-nav";
 
 async function getStats() {
-  if (!hasSupabaseServerEnv()) {
-    return { contacts: 0, eligible: 0, campaigns: 0, delivered: 0, recent: [] as Array<Record<string, unknown>>, latestInbound: null as null | { from_number: string; received_at: string }, latestService: null as null | { status: string; created_at: string; to_number: string } };
-  }
-  const supabase = createAdminClient();
-  const [contacts, eligible, campaigns, delivered, recent] = await Promise.all([
-    supabase.from("contacts").select("*", { count: "exact", head: true }),
-    supabase.from("contacts").select("*", { count: "exact", head: true }).eq("marketing_status", "eligible"),
-    supabase.from("campaigns").select("*", { count: "exact", head: true }),
-    supabase.from("messages").select("*", { count: "exact", head: true }).in("status", ["delivered", "read"]),
-    supabase.from("campaigns").select("id,name,status,created_at").order("created_at", { ascending: false }).limit(6),
-  ]);
-  const [latestInbound, latestService] = await Promise.all([
-    supabase.from("inbound_messages").select("from_number,received_at").order("received_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("service_messages").select("status,created_at,to_number").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-  ]);
-  return {
-    contacts: contacts.count ?? 0,
-    eligible: eligible.count ?? 0,
-    campaigns: campaigns.count ?? 0,
-    delivered: delivered.count ?? 0,
-    recent: recent.data ?? [],
-    latestInbound: latestInbound.data ?? null,
-    latestService: latestService.data ?? null,
+  const empty = {
+    contacts: 0,
+    eligible: 0,
+    campaigns: 0,
+    delivered: 0,
+    recent: [] as Array<Record<string, unknown>>,
   };
+
+  if (!hasSupabaseServerEnv()) return empty;
+
+  try {
+    const supabase = createAdminClient();
+    const [contacts, eligible, campaigns, delivered, recent] = await Promise.all([
+      supabase.from("contacts").select("*", { count: "exact", head: true }),
+      supabase.from("contacts").select("*", { count: "exact", head: true }).eq("marketing_status", "eligible"),
+      supabase.from("campaigns").select("*", { count: "exact", head: true }),
+      supabase.from("messages").select("*", { count: "exact", head: true }).in("status", ["delivered", "read"]),
+      supabase.from("campaigns").select("id,name,status,created_at").order("created_at", { ascending: false }).limit(6),
+    ]);
+
+    return {
+      contacts: contacts.count ?? 0,
+      eligible: eligible.count ?? 0,
+      campaigns: campaigns.count ?? 0,
+      delivered: delivered.count ?? 0,
+      recent: recent.data ?? [],
+    };
+  } catch (error) {
+    console.error("Dashboard stats failed", error);
+    return empty;
+  }
 }
 
 export default async function Home({
@@ -94,15 +101,8 @@ export default async function Home({
       <section className="card section">
         <h2>Production outbound test</h2>
         <p className="muted">
-          Reply to the most recent inbound WhatsApp conversation while its 24-hour customer-service window is open.
+          Sends a test reply to the most recent inbound WhatsApp conversation if its 24-hour customer-service window is still open.
         </p>
-        {stats.latestInbound ? (
-          <p className="muted">
-            Latest inbound: {stats.latestInbound.from_number} · {new Date(stats.latestInbound.received_at).toLocaleString()}
-          </p>
-        ) : (
-          <p className="muted">No inbound production message found yet.</p>
-        )}
         {params.reply === "sent" ? (
           <p style={{ color: "var(--good)", fontWeight: 700 }}>
             Production test reply accepted by Meta. Delivery/read updates will arrive through the webhook.
@@ -120,15 +120,10 @@ export default async function Home({
           <p style={{ color: "#9b1c1c", fontWeight: 700 }}>Meta rejected the outbound production test. Check the audit log.</p>
         ) : null}
         <form method="post" action="/api/meta/send-test-reply">
-          <button className="button" type="submit" disabled={!stats.latestInbound || !metaReady || !supabaseReady}>
+          <button className="button" type="submit" disabled={!metaReady || !supabaseReady}>
             Send production test reply
           </button>
         </form>
-        {stats.latestService ? (
-          <p className="muted" style={{ marginTop: 12 }}>
-            Latest outbound service message: {stats.latestService.status} · {stats.latestService.to_number} · {new Date(stats.latestService.created_at).toLocaleString()}
-          </p>
-        ) : null}
       </section>
 
       <section className="card section">
