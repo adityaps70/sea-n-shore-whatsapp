@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env, hasWhatsAppEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAdminRequest } from "@/lib/auth";
 
-const NONCE = "sns-legacy-submit-2026-10-03-X7mQ9rT2";
 const TEMPLATE_NAME = "sea_n_shore_legacy_claim_2026_v1";
 const LANGUAGE = "en_US";
 
@@ -18,14 +18,13 @@ async function audit(details: Record<string, unknown>) {
   } catch {}
 }
 
-export async function GET(request: NextRequest) {
-  const key = request.nextUrl.searchParams.get("key");
-  if (key !== NONCE) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+export async function POST(request: NextRequest) {
+  if (!isAdminRequest(request)) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   if (!hasWhatsAppEnv() || !env.whatsappBusinessAccountId || !env.metaAppId) {
-    return NextResponse.json({ ok: false, error: "missing_env" }, { status: 500 });
+    return NextResponse.redirect(new URL("/campaigns?legacy_template=missing_env", request.url), 303);
   }
 
   const supabase = createAdminClient();
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (existing.data) {
-    return NextResponse.json({ ok: true, existing: true, template: existing.data });
+    return NextResponse.redirect(new URL(`/campaigns?legacy_template=existing&status=${encodeURIComponent(existing.data.status || "UNKNOWN")}`, request.url), 303);
   }
 
   try {
@@ -175,7 +174,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ ok: false, stage: "template_create", payload }, { status: 400 });
+      const url = new URL("/campaigns", request.url);
+      url.searchParams.set("legacy_template", "error");
+      if (payload?.error?.code) url.searchParams.set("code", String(payload.error.code));
+      return NextResponse.redirect(url, 303);
     }
 
     await supabase.from("meta_templates").insert({
@@ -187,18 +189,15 @@ export async function GET(request: NextRequest) {
       provider_response: payload,
     });
 
-    return NextResponse.json({
-      ok: true,
-      template: {
-        id: payload?.id ?? null,
-        name: TEMPLATE_NAME,
-        status: payload?.status ?? "PENDING",
-        category: payload?.category ?? "MARKETING",
-      },
-    });
+    return NextResponse.redirect(
+      new URL(`/campaigns?legacy_template=submitted&status=${encodeURIComponent(payload?.status || "PENDING")}`, request.url),
+      303
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     await audit({ ok: false, exception: message });
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const url = new URL("/campaigns", request.url);
+    url.searchParams.set("legacy_template", "exception");
+    return NextResponse.redirect(url, 303);
   }
 }
