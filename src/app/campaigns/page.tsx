@@ -17,7 +17,7 @@ export default async function CampaignsPage({
   const [{ data }, { data: templates }] = await Promise.all([
     supabase
       .from("campaigns")
-      .select("id,name,template_name,language_code,status,target_filter,use_name_parameter,scheduled_at,created_at")
+      .select("id,name,template_name,language_code,status,target_filter,use_name_parameter,header_media_id,scheduled_at,created_at")
       .order("created_at", { ascending: false })
       .limit(100),
     supabase
@@ -85,12 +85,19 @@ export default async function CampaignsPage({
         {params.sent ? <p><strong>{params.sent}</strong> message(s) submitted · <strong>{params.failed || "0"}</strong> failed in this batch.</p> : null}
         {params.error ? <p style={{ color: "#9b1c1c", fontWeight: 700 }}>Campaign error: {params.error}</p> : null}
 
-        <form method="post" action="/api/campaigns/create">
+        <form method="post" action="/api/campaigns/create" encType="multipart/form-data">
           <div className="grid" style={{ gridTemplateColumns: "repeat(2,minmax(0,1fr))" }}>
             <label>Campaign name<input name="name" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
             <label>Meta template name<input name="template_name" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
             <label>Language code<input name="language_code" defaultValue="en_US" required style={{ width:"100%", padding:10, marginTop:6 }} /></label>
             <label>Category filter<input name="category" placeholder="Leave blank for all" style={{ width:"100%", padding:10, marginTop:6 }} /></label>
+            <label style={{ gridColumn:"1 / -1" }}>
+              Image header (JPG/PNG, max 5 MB)
+              <input name="header_image" type="file" accept="image/jpeg,image/png" style={{ width:"100%", padding:10, marginTop:6 }} />
+              <span className="muted" style={{ display:"block", marginTop:6 }}>
+                Required for the old-account claim template. Upload the same Sea N Shore image used in Meta.
+              </span>
+            </label>
           </div>
           <label style={{ display:"block", marginTop:14 }}>
             <input name="use_name_parameter" type="checkbox" /> Template body expects the contact name as parameter 1
@@ -106,7 +113,11 @@ export default async function CampaignsPage({
             {(data ?? []).map((c) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
-                <td>{c.template_name}<br/><span className="muted">{c.language_code}</span></td>
+                <td>
+                  {c.template_name}<br/>
+                  <span className="muted">{c.language_code}</span>
+                  {c.header_media_id ? <><br/><span className="muted">Image ready</span></> : null}
+                </td>
                 <td>{(c.target_filter as { category?: string } | null)?.category || "All eligible contacts"}</td>
                 <td>{c.status}</td>
                 <td>
