@@ -4,6 +4,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTemplateMessage } from "@/lib/meta";
 import { isAdminRequest } from "@/lib/auth";
 
+function isLegacyClaimTemplate(templateName: string) {
+  return templateName.startsWith("sea_n_shore_legacy_claim_");
+}
+
+function maskEmail(email: string) {
+  const [local, domain] = email.trim().toLowerCase().split("@");
+  if (!local || !domain) return email;
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}***@${domain}`;
+}
+
 const schema = z.object({
   campaignId: z.string().uuid(),
   limit: z.number().int().min(1).max(100).default(25),
@@ -45,7 +56,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const { data: campaign, error: campaignError } = await supabase
     .from("campaigns")
-    .select("id,name,template_name,language_code,status,target_filter,use_name_parameter")
+    .select("id,name,template_name,language_code,status,target_filter,use_name_parameter,header_media_id")
     .eq("id", parsed.data.campaignId)
     .single();
 
@@ -59,9 +70,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "campaign_not_sendable" }, { status: 409 });
   }
 
+  const legacyClaimTemplate = isLegacyClaimTemplate(campaign.template_name);
+  if (legacyClaimTemplate && !campaign.header_media_id) {
+    if (input.browserForm) return NextResponse.redirect(new URL("/campaigns?error=missing_header_image", request.url), 303);
+    return NextResponse.json({ ok: false, error: "missing_header_image" }, { status: 409 });
+  }
+
   let contactQuery = supabase
     .from("contacts")
-    .select("id,phone_e164,full_name")
+    .select("id,phone_e164,full_name,email")
     .eq("marketing_status", "eligible")
     .not("consent_source", "is", null)
     .not("consent_at", "is", null)
@@ -105,11 +122,27 @@ export async function POST(request: NextRequest) {
 
   for (const contact of contacts) {
     try {
+      if (legacyClaimTemplate && !contact.email) {
+        throw new Error("legacy_claim_contact_missing_email");
+      }
+
+      const bodyParameters = legacyClaimTemplate
+        ? [
+            contact.full_name?.trim() || "Sea N Shore member",
+            maskEmail(contact.email || ""),
+          ]
+        : campaign.use_name_parameter && contact.full_name
+          ? [contact.full_name]
+          : undefined;
+
       const result = await sendTemplateMessage({
         to: contact.phone_e164.replace("+", ""),
         templateName: campaign.template_name,
         languageCode: campaign.language_code || "en",
-        bodyParameters: campaign.use_name_parameter && contact.full_name ? [contact.full_name] : undefined,
+        bodyParameters,
+        headerImageId: legacyClaimTemplate ? campaign.header_media_id || undefined : undefined,
+        urlButtonParameter: legacyClaimTemplate ? contact.email || undefined : undefined,
+        urlButtonIndex: 0,
       });
 
       const metaMessageId = result?.messages?.[0]?.id ?? null;
@@ -134,7 +167,7 @@ export async function POST(request: NextRequest) {
     action: "campaign.send_batch",
     entity_type: "campaign",
     entity_id: campaign.id,
-    details: { requested: contacts.length, sent, failed: failures.length },
+    details: { requested: contacts.length, sent, failed: failures.length, legacy_claim: legacyClaimTemplate },
   });
 
   if (input.browserForm) {
