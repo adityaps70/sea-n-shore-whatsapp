@@ -5,7 +5,7 @@ import { AdminNav } from "@/components/admin-nav";
 export default async function CampaignsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string; sent?: string; failed?: string; error?: string; template?: string; status?: string; code?: string }>;
+  searchParams: Promise<{ created?: string; sent?: string; failed?: string; error?: string; template?: string; legacy_template?: string; status?: string; code?: string }>;
 }) {
   const params = await searchParams;
 
@@ -61,6 +61,21 @@ export default async function CampaignsPage({
             </tbody>
           </table>
         ) : null}
+      </section>
+
+      <section className="card section">
+        <h2>Old account claim template</h2>
+        <p className="muted">
+          Image + personalized old-account reminder + Claim My Account button. Footer: Sea N Shore - Global Shipping Community.
+        </p>
+        {params.legacy_template === "submitted" ? <p><strong>Legacy claim template submitted to Meta.</strong> Status: {params.status || "PENDING"}</p> : null}
+        {params.legacy_template === "existing" ? <p><strong>Legacy claim template already exists.</strong> Status: {params.status || "UNKNOWN"}</p> : null}
+        {params.legacy_template === "missing_env" ? <p style={{ color:"#9b1c1c", fontWeight:700 }}>Meta production configuration is incomplete.</p> : null}
+        {params.legacy_template === "error" ? <p style={{ color:"#9b1c1c", fontWeight:700 }}>Meta rejected the legacy claim template submission{params.code ? ` (error ${params.code})` : ""}.</p> : null}
+        {params.legacy_template === "exception" ? <p style={{ color:"#9b1c1c", fontWeight:700 }}>Legacy claim template submission failed before Meta accepted it. Check the audit log.</p> : null}
+        <form method="post" action="/api/meta/submit-legacy-claim-template-once">
+          <button className="button" type="submit">Submit old account claim template</button>
+        </form>
       </section>
 
       <section className="card section">
