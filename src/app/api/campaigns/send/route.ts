@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         languageCode: campaign.language_code || "en",
         bodyParameters,
         headerImageId: legacyClaimTemplate ? campaign.header_media_id || undefined : undefined,
-        urlButtonParameter: legacyClaimTemplate ? contact.email || undefined : undefined,
+        urlButtonParameter: legacyClaimTemplate && contact.email ? encodeURIComponent(contact.email) : undefined,
         urlButtonIndex: 0,
       });
 
