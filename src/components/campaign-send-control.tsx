@@ -26,7 +26,7 @@ export function CampaignSendControl({ campaignId, status }: Props) {
         const response = await fetch("/api/campaigns/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campaignId, limit: 25 }),
+          body: JSON.stringify({ campaignId, limit: 10 }),
         });
 
         const result = await response.json();
@@ -52,7 +52,7 @@ export function CampaignSendControl({ campaignId, status }: Props) {
           return;
         }
 
-        // Keep the existing conservative 25-contact batch size, but continue automatically.
+        // Use small 10-contact requests so each serverless call completes comfortably within the runtime limit, while continuing automatically.
         await new Promise((resolve) => window.setTimeout(resolve, 300));
       }
     } catch (error) {
