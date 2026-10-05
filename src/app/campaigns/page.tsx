@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
 import { AdminNav } from "@/components/admin-nav";
+import { CampaignSendControl } from "@/components/campaign-send-control";
 
 export default async function CampaignsPage({
   searchParams,
@@ -122,11 +123,7 @@ export default async function CampaignsPage({
                 <td>{c.status}</td>
                 <td>
                   {hasWhatsAppEnv() ? (
-                    <form method="post" action="/api/campaigns/send">
-                      <input type="hidden" name="campaignId" value={c.id} />
-                      <input type="hidden" name="limit" value="100" />
-                      <button className="button" type="submit">Send next 100</button>
-                    </form>
+                    <CampaignSendControl campaignId={c.id} status={c.status} />
                   ) : <span className="muted">Connect Meta first</span>}
                 </td>
               </tr>
