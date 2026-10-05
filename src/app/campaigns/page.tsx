@@ -124,8 +124,8 @@ export default async function CampaignsPage({
                   {hasWhatsAppEnv() ? (
                     <form method="post" action="/api/campaigns/send">
                       <input type="hidden" name="campaignId" value={c.id} />
-                      <input type="hidden" name="limit" value="25" />
-                      <button className="button" type="submit">Send next 25</button>
+                      <input type="hidden" name="limit" value="100" />
+                      <button className="button" type="submit">Send next 100</button>
                     </form>
                   ) : <span className="muted">Connect Meta first</span>}
                 </td>
