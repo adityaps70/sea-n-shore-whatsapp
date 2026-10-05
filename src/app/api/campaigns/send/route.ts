@@ -76,29 +76,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "missing_header_image" }, { status: 409 });
   }
 
-  let contactQuery = supabase
-    .from("contacts")
-    .select("id,phone_e164,full_name,email")
-    .eq("marketing_status", "eligible")
-    .not("consent_source", "is", null)
-    .not("consent_at", "is", null)
-    .is("opted_out_at", null);
+  // Supabase/PostgREST commonly caps a single response at 1,000 rows.
+  // Read every existing campaign message in pages so already-processed contacts
+  // stay excluded after a campaign grows beyond the first 1,000 recipients.
+  const sentIds = new Set<string>();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data: page, error } = await supabase
+      .from("messages")
+      .select("id,contact_id")
+      .eq("campaign_id", campaign.id)
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    for (const row of page ?? []) sentIds.add(row.contact_id);
+    if (!page || page.length < pageSize) break;
+  }
 
   const category = (campaign.target_filter as { category?: string } | null)?.category;
-  if (category) contactQuery = contactQuery.eq("category", category);
+  const contacts: Array<{ id: string; phone_e164: string; full_name: string | null; email: string | null }> = [];
 
-  const { data: eligibleContacts, error: contactsError } = await contactQuery.limit(5000);
-  if (contactsError) throw contactsError;
+  // Page through the whole eligible audience rather than repeatedly receiving
+  // only Supabase's first 1,000 rows.
+  for (let from = 0; contacts.length < parsed.data.limit; from += pageSize) {
+    let contactQuery = supabase
+      .from("contacts")
+      .select("id,phone_e164,full_name,email")
+      .eq("marketing_status", "eligible")
+      .not("consent_source", "is", null)
+      .not("consent_at", "is", null)
+      .is("opted_out_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
 
-  const { data: alreadySent } = await supabase
-    .from("messages")
-    .select("contact_id")
-    .eq("campaign_id", campaign.id);
+    if (category) contactQuery = contactQuery.eq("category", category);
 
-  const sentIds = new Set((alreadySent ?? []).map((m) => m.contact_id));
-  const contacts = (eligibleContacts ?? [])
-    .filter((contact) => !sentIds.has(contact.id))
-    .slice(0, parsed.data.limit);
+    const { data: page, error: contactsError } = await contactQuery;
+    if (contactsError) throw contactsError;
+
+    for (const contact of page ?? []) {
+      if (!sentIds.has(contact.id)) {
+        contacts.push(contact);
+        if (contacts.length >= parsed.data.limit) break;
+      }
+    }
+
+    if (!page || page.length < pageSize) break;
+  }
 
   if (contacts.length === 0) {
     await supabase.from("campaigns").update({
@@ -113,7 +138,8 @@ export async function POST(request: NextRequest) {
   if (campaign.status !== "sending") {
     await supabase.from("campaigns").update({
       status: "sending",
-      started_at: new Date().toISOString(),
+      started_at: campaign.status === "ready" ? new Date().toISOString() : undefined,
+      completed_at: null,
     }).eq("id", campaign.id);
   }
 
@@ -146,7 +172,7 @@ export async function POST(request: NextRequest) {
       });
 
       const metaMessageId = result?.messages?.[0]?.id ?? null;
-      await supabase.from("messages").insert({
+      const { error: insertError } = await supabase.from("messages").insert({
         campaign_id: campaign.id,
         contact_id: contact.id,
         to_number: contact.phone_e164,
@@ -154,11 +180,21 @@ export async function POST(request: NextRequest) {
         status: "accepted",
         provider_response: result,
       });
+      if (insertError) throw insertError;
       sent++;
     } catch (error) {
-      failures.push({
-        contactId: contact.id,
-        error: error instanceof Error ? error.message : "unknown_error",
+      const message = error instanceof Error ? error.message : "unknown_error";
+      failures.push({ contactId: contact.id, error: message });
+
+      // Record an immediate send failure so automatic sending can move forward
+      // instead of retrying the same bad contact forever.
+      await supabase.from("messages").insert({
+        campaign_id: campaign.id,
+        contact_id: contact.id,
+        to_number: contact.phone_e164,
+        meta_message_id: null,
+        status: "failed",
+        provider_response: { error: message, stage: "send_request" },
       });
     }
   }
