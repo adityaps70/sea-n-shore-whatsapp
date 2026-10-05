@@ -7,6 +7,18 @@ type Props = {
   status: string;
 };
 
+type SendResult = {
+  ok?: boolean;
+  sent?: number;
+  failures?: unknown[];
+  completed?: boolean;
+  error?: unknown;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export function CampaignSendControl({ campaignId, status }: Props) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState("");
@@ -20,6 +32,7 @@ export function CampaignSendControl({ campaignId, status }: Props) {
     let submitted = 0;
     let immediateFailures = 0;
     let batches = 0;
+    let transientRetries = 0;
 
     try {
       while (true) {
@@ -29,22 +42,52 @@ export function CampaignSendControl({ campaignId, status }: Props) {
           body: JSON.stringify({ campaignId, limit: 10 }),
         });
 
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(
-            typeof result?.error === "string" ? result.error : "campaign_send_failed"
-          );
+        const raw = await response.text();
+        let result: SendResult | null = null;
+
+        try {
+          result = raw ? (JSON.parse(raw) as SendResult) : null;
+        } catch {
+          result = null;
         }
 
-        submitted += Number(result?.sent || 0);
-        immediateFailures += Array.isArray(result?.failures) ? result.failures.length : 0;
+        if (!response.ok || !result) {
+          const transient =
+            response.status >= 500 ||
+            !result ||
+            raw.trimStart().startsWith("<!DOCTYPE") ||
+            raw.trimStart().startsWith("<html");
+
+          if (transient && transientRetries < 5) {
+            transientRetries += 1;
+            setProgress(
+              `Temporary gateway/server response. Waiting 15s before safe retry ${transientRetries}/5…`
+            );
+
+            // A timed-out request may have partially completed on the server.
+            // Wait long enough for it to finish/terminate; the next request rereads
+            // message rows and skips every contact already recorded.
+            await sleep(15000);
+            continue;
+          }
+
+          const apiError =
+            result && typeof result.error === "string"
+              ? result.error
+              : `HTTP ${response.status || "error"}`;
+          throw new Error(apiError);
+        }
+
+        transientRetries = 0;
+        submitted += Number(result.sent || 0);
+        immediateFailures += Array.isArray(result.failures) ? result.failures.length : 0;
         batches += 1;
 
         setProgress(
           `Submitted ${submitted} · immediate failures ${immediateFailures} · batch ${batches}`
         );
 
-        if (result?.completed) {
+        if (result.completed) {
           setProgress(
             `Complete · submitted ${submitted} · immediate failures ${immediateFailures}`
           );
@@ -52,8 +95,8 @@ export function CampaignSendControl({ campaignId, status }: Props) {
           return;
         }
 
-        // Use small 10-contact requests so each serverless call completes comfortably within the runtime limit, while continuing automatically.
-        await new Promise((resolve) => window.setTimeout(resolve, 300));
+        // Keep server calls short while the browser continues automatically.
+        await sleep(300);
       }
     } catch (error) {
       setProgress(
