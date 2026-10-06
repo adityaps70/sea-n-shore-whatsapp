@@ -38,7 +38,8 @@ export function CampaignSendControl({ campaignId, status }: Props) {
       while (true) {
         const response = await fetch("/api/campaigns/send", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          cache: "no-store",
           body: JSON.stringify({ campaignId, limit: 10 }),
         });
 
@@ -121,6 +122,7 @@ export function CampaignSendControl({ campaignId, status }: Props) {
       >
         {running ? "Sending automatically…" : "Send all remaining"}
       </button>
+      <span className="muted" style={{ display: "block", marginTop: 6 }}>Auto sender v3</span>
       {progress ? (
         <span className="muted" style={{ display: "block", marginTop: 6 }}>
           {progress}
