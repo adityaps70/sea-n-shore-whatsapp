@@ -3,6 +3,9 @@ import { hasSupabaseServerEnv, hasWhatsAppEnv } from "@/lib/env";
 import { AdminNav } from "@/components/admin-nav";
 import { CampaignSendControl } from "@/components/campaign-send-control";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function CampaignsPage({
   searchParams,
 }: {
